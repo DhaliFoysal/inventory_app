@@ -1,4 +1,4 @@
-const { body, param } = require("express-validator");
+const { body, param, query } = require("express-validator");
 const db = require("../../../db/db");
 
 const createUserValidator = () => {
@@ -61,6 +61,65 @@ const createUserValidator = () => {
           throw new Error("Invalid Status");
         }
       }),
+  ];
+};
+
+const getAllUserValidation = () => {
+  return [
+    query("page").custom((value) => {
+      let intValue;
+      if (!value) {
+        return true;
+      } else {
+        intValue = parseInt(value);
+      }
+
+      if (!intValue) {
+        throw new Error("page must be Numbers");
+      }
+      return true;
+    }),
+    query("limit").custom((value) => {
+      let intValue;
+      if (!value) {
+        return true;
+      } else {
+        intValue = parseInt(value);
+      }
+
+      if (!intValue) {
+        throw new Error("Limit must be Numbers");
+      }
+      return true;
+    }),
+    query("sort_type").custom((value) => {
+      if (!value) {
+        return true;
+      }
+
+      if (value && value !== "asc" && value !== "desc") {
+        throw new Error("sort_type must be ( asc or desc )");
+      }
+
+      return true;
+    }),
+    query("sort_by").custom((value) => {
+      if (!value) {
+        return true;
+      }
+
+      if (
+        value &&
+        value !== "name" &&
+        value !== "phone" &&
+        value !== "email" &&
+        value !== "status"
+      ) {
+        throw new Error("sort_by must be ( name, phone, email or status )");
+      }
+
+      return true;
+    }),
   ];
 };
 
@@ -142,4 +201,5 @@ module.exports = {
   createUserValidator,
   updateUserValidator,
   deleteUserValidator,
+  getAllUserValidation,
 };

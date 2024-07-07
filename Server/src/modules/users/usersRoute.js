@@ -11,11 +11,12 @@ const {
 } = require("./usersController");
 const {
   createUserValidator,
+  getAllUserValidation,
   updateUserValidator,
   deleteUserValidator,
 } = require("./usersErrorValidator");
 
-router.get("/users", checkLogin, getAllUser);
+router.get("/users", checkLogin, getAllUserValidation(), getAllUser);
 router.post("/users", checkLogin, createUserValidator(), postUser);
 router.get("/users/:id", checkLogin, getUserById);
 router.patch(
