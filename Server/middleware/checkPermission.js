@@ -6,9 +6,6 @@ const checkPermission = async (req, res, next) => {
     const user = await checkUserById(req.params.id);
     const { role: thisUserRole, companyId: thisUserCompanyId } = req;
 
-   
-    console.log(req.userId, req.params.id);
-
     if (req.role === "user" || req.userId == req.params.id) {
       return res.status(401).json({
         code: 401,

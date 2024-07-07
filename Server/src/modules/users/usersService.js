@@ -28,14 +28,21 @@ const getAllUsers = async (query, role, companyId) => {
     const offset = limit * page - limit;
 
     const userQuery = ` SELECT id, name, phone, email, role, status, companyId, createdAt, updatedAt, 
-                            (SELECT COUNT(*) FROM user WHERE ${condition} AND name LIKE '%${
-      search ?? ""
-    }%') AS total_user  
+                            (SELECT COUNT(*) FROM user WHERE ${condition} AND (name LIKE '%${
+      search || ""
+    }%' OR phone LIKE '%${search || ""}%' OR email LIKE '%${
+      search || ""
+    }%' OR status LIKE '%${search || ""}%' )) AS total_user  
                         FROM user
-                        WHERE ${condition} AND name LIKE '%${search ?? ""}%'
-                        ORDER BY ${sort_by ?? "createdAt"} ${
-      sort_type ?? "asc"
+                        WHERE ${condition} AND (name LIKE '%${
+      search || ""
+    }%' OR phone LIKE '%${search || ""}%' OR email LIKE '%${
+      search || ""
+    }%' OR status LIKE '%${search || ""}%' )
+                        ORDER BY ${sort_by || "createdAt"} ${
+      sort_type || "asc"
     } LIMIT ${limit} OFFSET ${offset} `;
+
 
     const [rows] = await db.query(userQuery, companyId);
     return rows;

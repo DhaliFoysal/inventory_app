@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const { validationResult } = require("express-validator");
 const errorFormatter = require("../../utils/errorFormatter");
+const generateURL = require("../../utils/generateURL");
 const {
   createUser,
   getAllUsers,
@@ -70,7 +71,16 @@ const postUser = async (req, res, next) => {
 
 const getAllUser = async (req, res, next) => {
   const { role, companyId } = req;
+  const result = validationResult(req);
   try {
+    // Error validation
+    if (!result.isEmpty()) {
+      const error = errorFormatter(result.errors);
+      return res
+        .status(400)
+        .json({ code: 400, error: "Bad Request !", data: error });
+    }
+
     // check permission
     if (role === "user") {
       return res.status(401).json({
@@ -79,10 +89,13 @@ const getAllUser = async (req, res, next) => {
         message: "You do not have permission to access",
       });
     }
+
     const query = req.query;
     const users = await getAllUsers(query, role, companyId);
 
     let { page, limit } = query;
+    page = parseInt(page);
+    limit = parseInt(limit);
     let total_user = 0;
     let total_page = 0;
 
@@ -98,6 +111,15 @@ const getAllUser = async (req, res, next) => {
       total_page = Math.ceil(total_user / limit);
     }
 
+    const currentUrl = generateURL(req.query);
+
+    const reqQuery = req.query;
+    reqQuery.page = parseInt(reqQuery.page) + 1;
+    const nextUrl = generateURL(reqQuery);
+
+    reqQuery.page = parseInt(reqQuery.page) - 2;
+    const prevUrl = generateURL(reqQuery);
+
     const response = {
       code: 200,
       message: "Success",
@@ -110,13 +132,29 @@ const getAllUser = async (req, res, next) => {
         total_page,
         total_items: total_user,
       },
+      links: {
+        self: {
+          method: "GET",
+          url: `/users?${currentUrl}`,
+        },
+        next: {
+          method: "GET",
+          url: `/users?${nextUrl}`,
+        },
+        prev: {
+          method: "GET",
+          url: `/users?${prevUrl}`,
+        },
+      },
     };
 
     if (page >= total_page) {
       delete response.pagination.next_page;
+      delete response.links.next;
     }
     if (page <= 1) {
       delete response.pagination.prev_page;
+      delete response.links.prev;
     }
 
     res.status(200).json(response);
