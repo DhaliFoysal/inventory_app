@@ -2,14 +2,15 @@ const {
   createCategory,
   getAllCategories,
   getSingleCategory,
-  patchCategoryById
+  patchCategoryById,
 } = require("./categoriesControllers");
 const checkLogin = require("../../../middleware/checkLogin");
+const userPermission = require("../../../middleware/userPermission");
 const { checkActive } = require("../../../middleware/checkActive");
 const {
   createCategoryValidation,
   getAllCategory,
-  patchCategoryValidation
+  patchCategoryValidation,
 } = require("./categoriesErrorValidator");
 
 const router = require("express").Router();
@@ -22,11 +23,13 @@ router.post(
   createCategory
 );
 router.get("/", checkLogin, checkActive, getAllCategory(), getAllCategories);
-router.get(
+router.get("/:id", checkLogin, checkActive, getSingleCategory);
+router.patch(
   "/:id",
   checkLogin,
   checkActive,
-  getSingleCategory
+  userPermission,
+  patchCategoryValidation(),
+  patchCategoryById
 );
-router.patch('/:id', checkLogin, checkActive, patchCategoryValidation(), patchCategoryById)
 module.exports = router;

@@ -1,6 +1,7 @@
 const { checkActive } = require("../../../middleware/checkActive");
 const checkLogin = require("../../../middleware/checkLogin");
 const { checkPermission } = require("../../../middleware/checkPermission");
+const userPermission = require("../../../middleware/userPermission");
 const router = require("express").Router();
 const {
   postUser,
@@ -16,9 +17,9 @@ const {
   deleteUserValidator,
 } = require("./usersErrorValidator");
 
-router.get("/users", checkLogin, getAllUserValidation(), getAllUser);
+router.get("/users", checkLogin,userPermission, getAllUserValidation(), getAllUser);
 router.post("/users", checkLogin, createUserValidator(), postUser);
-router.get("/users/:id", checkLogin, getUserById);
+router.get("/users/:id", checkLogin,userPermission, getUserById);
 router.patch(
   "/users/:id",
   updateUserValidator(),

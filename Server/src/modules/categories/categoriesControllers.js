@@ -177,14 +177,6 @@ const patchCategoryById = async (req, res, next) => {
     const { companyId, role } = req;
     const id = req.params.id;
 
-    if (role === "user") {
-      return res.status(403).json({
-        code: 403,
-        error: "Access Denied",
-        message: "You do not have permission to access",
-      });
-    }
-
     const category = await updateCategoriesById(value, id, companyId);
 
     if (category.code === 404) {
