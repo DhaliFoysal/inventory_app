@@ -3,6 +3,7 @@ const {
   getAllCategories,
   getSingleCategory,
   patchCategoryById,
+  deleteCategoryById,
 } = require("./categoriesControllers");
 const checkLogin = require("../../../middleware/checkLogin");
 const userPermission = require("../../../middleware/userPermission");
@@ -32,4 +33,5 @@ router.patch(
   patchCategoryValidation(),
   patchCategoryById
 );
+router.delete("/:id", checkLogin, checkActive, userPermission, deleteCategoryById);
 module.exports = router;

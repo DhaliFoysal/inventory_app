@@ -5,6 +5,7 @@ const {
   getCategories,
   getCategoriesById,
   updateCategoriesById,
+  deleteCategory,
 } = require("./categoriesServices");
 const generateURL = require("../../utils/generateURL");
 
@@ -180,7 +181,11 @@ const patchCategoryById = async (req, res, next) => {
     const category = await updateCategoriesById(value, id, companyId);
 
     if (category.code === 404) {
-      return res.status(404).json();
+      return res.status(404).json({
+        code: 404,
+        error: "404 Not Found",
+        message: "Content Not Available!",
+      });
     }
     return res.status(200).json({
       code: 200,
@@ -205,10 +210,32 @@ const patchCategoryById = async (req, res, next) => {
     next(error);
   }
 };
+const deleteCategoryById = async (req, res, next) => {
+  try {
+    // value destructure
+    const { companyId } = req;
+    const categoryId = req.params.id;
+
+    const category = await deleteCategory(categoryId, companyId);
+
+    if (category.code === 404) {
+      return res.status(404).json({
+        code: 404,
+        error: "404 Not Found",
+        message: "Content Not Available!",
+      });
+    }
+     res.status(204).json();
+
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
   createCategory,
   getAllCategories,
   getSingleCategory,
   patchCategoryById,
+  deleteCategoryById,
 };
