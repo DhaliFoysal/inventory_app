@@ -51,4 +51,42 @@ const getCategories = async (req, limit, offset) => {
   }
 };
 
-module.exports = { postCategory, getCategories };
+const getCategoriesById = async (categoryId, companyId, userId) => {
+  try {
+    const categoryQuery = `SELECT * FROM categories 
+                      WHERE companyId=${companyId} AND id= ${categoryId}`;
+    const result = await db.query(categoryQuery);
+    return result[0];
+  } catch (error) {
+    throw new Error(error);
+  }
+};
+
+const updateCategoriesById = async (value, id, companyId, userId) => {
+  try {
+    const time = new Date().toISOString();
+    const checkQuery = `SELECT * FROM categories WHERE id=${id}`;
+    const categoryQuery = `UPDATE categories SET name='${value.name}', description='${value.description}', updatedAt='${time}' WHERE id=${id} AND companyId=${companyId}`;
+
+    const isId = await db.query(checkQuery);
+
+    if (isId[0].length <= 0) {
+      return { code: 404 };
+    }
+    const result = await db.query(categoryQuery);
+
+    if (result[0].affectedRows) {
+      const updatedCategory = await db.query(checkQuery);
+      return { code: 200, data: updatedCategory[0][0] };
+    }
+  } catch (error) {
+    throw new Error(error);
+  }
+};
+
+module.exports = {
+  postCategory,
+  getCategories,
+  getCategoriesById,
+  updateCategoriesById,
+};

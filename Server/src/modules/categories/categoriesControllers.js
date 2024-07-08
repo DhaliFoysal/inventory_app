@@ -1,6 +1,11 @@
 const { validationResult } = require("express-validator");
 const errorFormatter = require("../../utils/errorFormatter");
-const { postCategory, getCategories } = require("./categoriesServices");
+const {
+  postCategory,
+  getCategories,
+  getCategoriesById,
+  updateCategoriesById,
+} = require("./categoriesServices");
 const generateURL = require("../../utils/generateURL");
 
 const createCategory = async (req, res, next) => {
@@ -120,7 +125,90 @@ const getAllCategories = async (req, res, next) => {
   }
 };
 
+const getSingleCategory = async (req, res, next) => {
+  const id = req.params.id;
+  const { companyId, userId } = req;
+  try {
+    const result = await getCategoriesById(id, companyId, userId);
+    if (!result.length > 0) {
+      return res.status(404).json({
+        code: 404,
+        error: "404 Not Found !",
+        message: "Content Not Available !",
+      });
+    }
+    return res.status(200).json({
+      code: 200,
+      message: "Success",
+      data: result[0],
+      links: {
+        self: {
+          method: "GET",
+          url: `/categories/${id}`,
+        },
+        update: {
+          method: "PATCH",
+          url: `/categories/${id}`,
+        },
+        delete: {
+          method: "DELETE",
+          url: `/categories/${id}`,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const patchCategoryById = async (req, res, next) => {
+  // error validation
+  const result = validationResult(req);
+  if (!result.isEmpty()) {
+    const error = errorFormatter(result.errors);
+    return res
+      .status(400)
+      .json({ code: 400, error: "Bad Request !", data: error });
+  }
+
+  try {
+    // value destructure
+    const value = req.body;
+    const { companyId, role } = req;
+    const id = req.params.id;
+
+    const category = await updateCategoriesById(value, id, companyId);
+
+    if (category.code === 404) {
+      return res.status(404).json();
+    }
+    return res.status(200).json({
+      code: 200,
+      message: "Category updated Successful",
+      data: category.data,
+      links: {
+        self: {
+          method: "PATCH",
+          url: `/category/${id}`,
+        },
+        update: {
+          method: "PATCH",
+          url: `/category/${id}`,
+        },
+        delete: {
+          method: "DELETE",
+          url: `/category/${id}`,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createCategory,
   getAllCategories,
+  getSingleCategory,
+  patchCategoryById,
 };

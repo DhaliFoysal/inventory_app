@@ -81,15 +81,6 @@ const getAllUser = async (req, res, next) => {
         .json({ code: 400, error: "Bad Request !", data: error });
     }
 
-    // check permission
-    if (role === "user") {
-      return res.status(401).json({
-        code: 401,
-        error: "access denied",
-        message: "You do not have permission to access",
-      });
-    }
-
     const query = req.query;
     const users = await getAllUsers(query, role, companyId);
 
@@ -165,13 +156,6 @@ const getAllUser = async (req, res, next) => {
 
 const getUserById = async (req, res, next) => {
   try {
-    if (req.role === "user") {
-      return res.status(401).json({
-        code: 401,
-        error: "access denied",
-        message: "You do not have permission to access",
-      });
-    }
 
     const companyId = req.companyId;
     const userId = req.params.id;
