@@ -84,9 +84,31 @@ const updateCategoriesById = async (value, id, companyId, userId) => {
   }
 };
 
+const deleteCategory = async (categoryId, companyId) => {
+  try {
+    const deleteQuery = `DELETE FROM categories WHERE id=${categoryId} AND companyId=${companyId}`;
+    const checkCategoryQuery = `SELECT id FROM categories WHERE id=${categoryId} AND companyId=${companyId}`;
+
+    const checkData = await db.query(checkCategoryQuery);
+    
+    if (!checkData[0]) {
+      return {
+        code: 404,
+        data: checkData[0],
+      };
+    }
+    
+    const deletedData = db.query(deleteQuery);
+    return { code: 204, data: deletedData[0] };
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   postCategory,
   getCategories,
   getCategoriesById,
   updateCategoriesById,
+  deleteCategory,
 };
