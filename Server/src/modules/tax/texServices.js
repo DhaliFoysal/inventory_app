@@ -60,7 +60,7 @@ const updateSingleTax = async (value, id, userId) => {
   const time = new Date().toISOString();
   try {
     const getQueryById = `SELECT * FROM tax WHERE id=${id}`;
-    const getQueryByTitle = `SELECT * FROM tax WHERE title='${value.title}'`;
+    const getQueryByTitle = `SELECT * FROM tax WHERE title='${value.title}' id<>'${id}'`;
 
     const updateQuery = `UPDATE tax SET percent='${value.percent}',title='${value.title}', updatedAt='${time}' 
                           WHERE id='${id}' AND userId='${userId}'`;

@@ -1,4 +1,5 @@
 const db = require("../../../db/db");
+
 const postCategory = async (req) => {
   try {
     const { name, description } = req.body;
