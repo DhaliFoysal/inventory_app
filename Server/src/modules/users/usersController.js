@@ -156,7 +156,6 @@ const getAllUser = async (req, res, next) => {
 
 const getUserById = async (req, res, next) => {
   try {
-
     const companyId = req.companyId;
     const userId = req.params.id;
     const role = req.role;

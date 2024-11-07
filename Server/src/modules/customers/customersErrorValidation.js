@@ -1,5 +1,36 @@
-const { body, userId } = require("express-validator");
+const { body, userId, query, param } = require("express-validator");
 const db = require("../../../db/db");
+
+const getAllErrorValidation = () => {
+  return [
+    query("page").isInt().withMessage("Page must be a number"),
+    query("limit").isInt().withMessage("Limit must be a number"),
+    query("sort_type").custom((value) => {
+      if (value && value !== "asc" && value !== "desc") {
+        throw new Error("sort_type must be (ASC OR DESC)");
+      }
+      return true;
+    }),
+    query("sort_by").custom((value) => {
+      if (
+        value &&
+        value !== "name" &&
+        value !== "phone" &&
+        value !== "lastTradingDate" &&
+        value !== "balance"
+      ) {
+        throw new Error(
+          "sort_by must be (name OR phone OR  lastTradingDate OR balance)"
+        );
+      }
+      return true;
+    }),
+  ];
+};
+
+const getCustomerByIdValidation = () => {
+  return [param("id").isInt().withMessage("id must be numbers")];
+};
 
 const postErrorValidation = (req) => {
   let customer;
@@ -55,5 +86,7 @@ const patchErrorValidation = () => {
 
 module.exports = {
   postErrorValidation,
+  getCustomerByIdValidation,
+  getAllErrorValidation,
   patchErrorValidation,
 };
