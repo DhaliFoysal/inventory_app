@@ -5,6 +5,13 @@ const checkLogin = async (req, res, next) => {
 
   try {
     const privateKey = process.env.JWT_TOKEN;
+    
+    if (!authorization) {
+      return res
+        .status(401)
+        .json({ code: 401, error: "Unauthorized", message: "Please Login " });
+    }
+
     const token = authorization.split(" ")[1];
     let user;
 
