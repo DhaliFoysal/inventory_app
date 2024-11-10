@@ -47,6 +47,17 @@ const fetchAllCustomer = async (query, companyId) => {
   }
 };
 
+const customersForDropdown = async (search, companyId) => {
+  try {
+    const searchQuery = `SELECT * FROM customers WHERE (name LIKE '%${search}%' OR phone LIKE '%${search}%') AND (companyId = ${companyId})`;
+    const customers = await db.query(searchQuery);
+
+    return customers[0];
+  } catch (error) {
+    throw new Error(error);
+  }
+};
+
 const fetchAllCustomerById = async (id, companyId) => {
   try {
     const querySQL = `SELECT * FROM customers WHERE id = ${id} AND companyId = ${companyId}`;
@@ -57,8 +68,34 @@ const fetchAllCustomerById = async (id, companyId) => {
   }
 };
 
+const customerUpdate = async (customerId, companyId, data) => {
+  try {
+
+    const time = new Date().toISOString();
+    const customerQuery = `SELECT * FROM customers WHERE id = ${customerId} AND companyId = ${companyId}`;
+    const updateQuery = `UPDATE customers SET name= '${data.name}', email= '${data.email}', phone= '${data.phone}',
+                 address= '${data.address}', isTrader= ${data.isTrader}, updatedAt='${time}' WHERE id = ${customerId}`;
+
+    const isCustomer = await db.query(customerQuery);
+
+
+    if (isCustomer[0].length <= 0) {
+      return false;
+    }
+
+    await db.query(updateQuery);
+    const updatedCustomer = await db.query(`SELECT * FROM customers WHERE id = ${customerId}`);
+
+    return updatedCustomer[0]
+  } catch (error) {
+    throw new Error(error);
+  }
+};
+
 module.exports = {
   createPost,
   fetchAllCustomer,
+  customersForDropdown,
   fetchAllCustomerById,
+  customerUpdate,
 };

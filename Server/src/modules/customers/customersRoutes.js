@@ -4,6 +4,7 @@ const {
   getCustomerById,
   patchCustomerById,
   deleteCustomerById,
+  getCustomersForDropdown,
 } = require("./customersControllers");
 const { checkActive } = require("../../../middleware/checkActive");
 const checkLogin = require("../../../middleware/checkLogin");
@@ -12,6 +13,7 @@ const {
   patchErrorValidation,
   getAllErrorValidation,
   getCustomerByIdValidation,
+  getCustomerForDropdownValidation,
 } = require("./customersErrorValidation");
 
 const router = require("express").Router();
@@ -23,6 +25,14 @@ router.get(
   checkActive,
   getAllErrorValidation(),
   getAllCustomers
+);
+
+router.get(
+  "/getallcustomersfordropdown",
+  checkLogin,
+  checkActive,
+  getCustomerForDropdownValidation(),
+  getCustomersForDropdown
 );
 router.get(
   "/:id",

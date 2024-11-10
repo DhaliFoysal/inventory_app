@@ -4,6 +4,8 @@ const {
   createPost,
   fetchAllCustomer,
   fetchAllCustomerById,
+  customersForDropdown,
+  customerUpdate,
 } = require("./customersService");
 const generateUrl = require("../../utils/generateURL");
 
@@ -123,6 +125,32 @@ const getAllCustomers = async (req, res, next) => {
   }
 };
 
+const getCustomersForDropdown = async (req, res, next) => {
+  const search = req.query.search;
+  const result = validationResult(req);
+
+  try {
+    // Error Validation
+    if (!result.isEmpty()) {
+      const error = errorFormatter(result.errors);
+      return res
+        .status(400)
+        .json({ code: 400, error: "Bade Request !", data: error });
+    }
+
+    const customers = await customersForDropdown(search, req.companyId);
+    const response = {
+      code: 200,
+      message: "Success",
+      data: customers,
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getCustomerById = async (req, res, next) => {
   const id = req.params.id;
   const companyId = req.companyId;
@@ -165,7 +193,50 @@ const getCustomerById = async (req, res, next) => {
 };
 
 const patchCustomerById = async (req, res, next) => {
+  const id = req.params.id;
+  const data = req.body;
+
+  const errorResult = validationResult(req);
+
   try {
+    // Error Validation
+    if (!errorResult.isEmpty()) {
+      const error = errorFormatter(errorResult.errors);
+      return res
+        .status(400)
+        .json({ code: 400, error: "Bad Request", data: error });
+    }
+
+    const result = await customerUpdate(id, req.companyId, data);
+
+    if (result === false) {
+      return res.status(404).json({
+        code: 404,
+        error: "Not Found",
+        message: "Content not available",
+      });
+    }
+
+    const response = {
+      code: 200,
+      message: "Success",
+      data: result[0],
+      link: {
+        self: {
+          method: "PATCH",
+          url: `/customers/${id}`,
+        },
+        update: {
+          method: "PATCH",
+          url: `/customers/${id}`,
+        },
+        delete: {
+          method: "DELETE",
+          url: `/customers/${id}`,
+        },
+      },
+    };
+    return res.status(200).json(response);
   } catch (error) {
     next(error);
   }
@@ -181,6 +252,7 @@ const deleteCustomerById = async (req, res, next) => {
 module.exports = {
   postCustomer,
   getAllCustomers,
+  getCustomersForDropdown,
   getCustomerById,
   patchCustomerById,
   deleteCustomerById,
