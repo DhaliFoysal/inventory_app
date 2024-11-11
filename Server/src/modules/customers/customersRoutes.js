@@ -8,6 +8,7 @@ const {
 } = require("./customersControllers");
 const { checkActive } = require("../../../middleware/checkActive");
 const checkLogin = require("../../../middleware/checkLogin");
+const userPermission = require("../../../middleware/userPermission");
 const {
   postErrorValidation,
   patchErrorValidation,
@@ -48,6 +49,12 @@ router.patch(
   patchErrorValidation(),
   patchCustomerById
 );
-router.delete("/:id", checkLogin, checkActive, deleteCustomerById);
+router.delete(
+  "/:id",
+  checkLogin,
+  checkActive,
+  userPermission,
+  deleteCustomerById
+);
 
 module.exports = router;

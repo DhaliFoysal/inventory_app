@@ -6,6 +6,7 @@ const {
   fetchAllCustomerById,
   customersForDropdown,
   customerUpdate,
+  customerDelete,
 } = require("./customersService");
 const generateUrl = require("../../utils/generateURL");
 
@@ -243,7 +244,26 @@ const patchCustomerById = async (req, res, next) => {
 };
 
 const deleteCustomerById = async (req, res, next) => {
+  const user = {
+    userId: req.userId,
+    role: req.role,
+    companyId: req.companyId,
+  };
+  const customerId = req.params.id;
+
   try {
+    const result = await customerDelete(customerId, req.companyId);
+    if (result === false) {
+      return res.status(404).json({
+        code: 404,
+        error: "Not Found",
+        message: "Content not available!",
+      });
+    }
+
+    if (result === true) {
+      return res.status(204).json();
+    }
   } catch (error) {
     next(error);
   }
