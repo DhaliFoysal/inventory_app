@@ -1,83 +1,80 @@
-const db = require("../../../db/db");
+const prisma = require("../../../db/prisma");
 const bcrypt = require("bcrypt");
 
-const checkUser = async (userName, password) => {
-  const queryText = `SELECT *
-                     FROM user 
-                     WHERE (phone = '${userName}' OR email = '${userName}')`;
+const createUser = async (userData, companyData) => {
   try {
-    const [rows] = await db.query(queryText);
+    // check user is Exist
+    const isUser = await prisma.user.findUnique({
+      where: {
+        [userData.createBy]: userData[userData.createBy],
+      },
+    });
 
-    let isValid;
-    if (rows.length > 0) {
-      isValid = await bcrypt.compare(password, rows[0].password);
-      delete rows[0].password;
-      delete rows[0].createdAt;
-      delete rows[0].updatedAt;
+    if (isUser) {
+      return { isUser: true };
     }
 
-    if (isValid) {
-      return {
-        userIsValid: true,
-        user: rows[0],
-      };
-    }
-    return {
-      userIsValid: false,
-      user: null,
-    };
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          ...userData,
+        },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+        },
+      });
+
+      const company = await tx.company.create({
+        data: {
+          ...companyData,
+          userId: user.id,
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+
+      await tx.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          companyId: company.id,
+        },
+      });
+
+      return { user, company };
+    });
+
+    const newUser = result.user;
+    newUser.companyId = result.company.id;
+    newUser.companyName = result.company.name;
+
+    return newUser;
   } catch (error) {
-    console.log(error);
-    next(error);
+    throw new Error(error);
   }
 };
 
-const createUser = async (value) => {
-  const time = new Date().toJSON();
-  const queryText = `INSERT INTO user(name, phone, email, password, role, status, updatedAt) 
-                     VALUES ('${value.name}','${value.phone}','${value.email}','${value.password}','admin','active','${time}')`;
-
-  const [rows] = await db.query(queryText);
-  return rows;
-};
-
-const getUser = async (userId) => {
-  const queryText = `SELECT * FROM user WHERE id = ${userId}`;
-
-  const [rows, fields] = await db.query(queryText);
-  delete rows[0].password;
-
-  return rows[0];
-};
-
-const createCompany = async (value) => {
-  const time = new Date().toJSON();
-
-  const queryText = `INSERT INTO company (userId, name, address, updatedAt)
-                     VALUES ('${value.userId}','${value.name}','${value.address}','${time}')`;
-
-  try {
-    const [rows] = await db.query(queryText);
-    const companyId = rows.insertId;
-
-    if (companyId) {
-      const updateQueryText = `UPDATE user SET companyId = '${companyId}', updatedAt='${time}' WHERE id = '${value.userId}'`;
-      const [rows] = await db.query(updateQueryText);
-    }
-
-    const newUserQuery = `SELECT id, name, phone, email, role, status, companyId, createdAt, updatedAt 
-                          FROM user WHERE id = ${value.userId}`;
-    const newUser = await db.query(newUserQuery);
-
-    return newUser[0][0];
-  } catch (error) {
-    console.log(error);
+const signIn = async (userData) => {
+  const user = await prisma.user.findMany({
+    where: {
+      OR: [{ email: userData.userName }, { phone: userData.userName }],
+    },
+  });
+  if (user.length > 0) {
+    return user[0];
+  } else {
+    return null;
   }
 };
 
 module.exports = {
-  checkUser,
   createUser,
-  getUser,
-  createCompany,
+  signIn,
+  // createCompany,
 };

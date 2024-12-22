@@ -17,23 +17,35 @@ const {
   deleteUserValidator,
 } = require("./usersErrorValidator");
 
-router.get("/users", checkLogin,userPermission, getAllUserValidation(), getAllUser);
-router.post("/users", checkLogin, createUserValidator(), postUser);
-router.get("/users/:id", checkLogin,userPermission, getUserById);
-router.patch(
-  "/users/:id",
-  updateUserValidator(),
+router.get(
+  "/users",
+  checkLogin,
+  userPermission,
+  getAllUserValidation(),
+  getAllUser
+);
+router.post(
+  "/users",
   checkLogin,
   checkActive,
-  checkPermission,
+  userPermission,
+  createUserValidator(),
+  postUser
+);
+router.get("/users/:id", checkLogin, userPermission, getUserById);
+router.patch(
+  "/users/:id",
+  checkLogin,
+  checkActive,
+  userPermission,
+  updateUserValidator(),
   patchUser
 );
 router.delete(
   "/users/:id",
   checkLogin,
-  deleteUserValidator(),
   checkActive,
-  checkPermission,
+  userPermission,
   deleteUser
 );
 

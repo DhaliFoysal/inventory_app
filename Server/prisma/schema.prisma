@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  user
+  superAdmin
+}
+
+enum Status {
+  active
+  deActive
+  pending
+}
+
+enum CreateBy {
+  email
+  phone
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?  @unique
+  email     String?  @unique
+  password  String
+  role      Role     @default(admin)
+  status    Status   @default(active)
+  companyId String?
+  createBy  CreateBy @default(email)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Type {
+  electric
+  cosmetic
+  grocery
+  electronics
+}
+
+model Company {
+  id               String             @id @default(cuid())
+  name             String
+  address          String
+  type             Type               @default(electronics)
+  userId           String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  Customers        Customers[]
+  ProductsCategory ProductsCategory[]
+}
+
+model Customers {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  email     String?  @unique
+  address   String
+  isTrader  Boolean  @default(false)
+  balance   Int?
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model ProductsCategory {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Measurement_Unit {
+  id        String   @id @default(cuid())
+  type      String
+  symbol    String
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tax {
+  id        String   @id @default(cuid())
+  percent   String
+  title     String
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Products {
+  id                String             @id @default(cuid())
+  name              String
+  barcode           String
+  buyingPrice       Float
+  sellingPrice      Float
+  isWarranty        Boolean            @default(true)
+  warrantyType      String?
+  warranty          Int?
+  isActive          Boolean            @default(true)
+  wholesalePrice    Float?
+  companyId         String
+  buyingTaxId       String?
+  sellingTaxId      String?
+  isSerialItems     Boolean            @default(false)
+  measurementUnitId String
+  measurementUnit   String
+  img               String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  Category_Details  Category_Details[]
+  Inventories       Inventories[]
+  Serial_numbers    Serial_numbers[]
+}
+
+model Category_Details {
+  id         String   @id @default(cuid())
+  productId  String
+  categoryId String
+  name       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product Products @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Inventories {
+  id            String    @id @default(cuid())
+  quantity      Int
+  productId     String
+  warehouseName String
+  warehouseId   String
+  companyId     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  warehouse     Warehouse @relation(fields: [warehouseId], references: [id])
+  product       Products  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+enum Sold {
+  sold
+  unsold
+}
+
+model Serial_numbers {
+  id             String    @id @default(cuid())
+  serialNumber   String
+  status         Sold      @default(unsold)
+  companyId      String    @db.VarChar(50)
+  productId      String?
+  warehouseId    String
+  salesDetailsId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  Products       Products? @relation(fields: [productId], references: [id])
+}
+
+model Warehouse {
+  id          String        @id @default(cuid())
+  name        String
+  address     String
+  companyId   String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  Inventories Inventories[]
+}

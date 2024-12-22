@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const { validationResult } = require("express-validator");
+const { validationResult, query } = require("express-validator");
 const errorFormatter = require("../../utils/errorFormatter");
 const generateURL = require("../../utils/generateURL");
 const {
@@ -11,6 +11,8 @@ const {
 } = require("./usersService");
 
 const postUser = async (req, res, next) => {
+  const userData = req.body;
+  const companyId = req.companyId;
   try {
     // error validation
     const { errors } = validationResult(req);
@@ -21,44 +23,38 @@ const postUser = async (req, res, next) => {
         .json({ code: 400, error: "Bad Request", data: error });
     }
 
-    const { name, email, phone, password, role, status } = req.body;
-    const reqValue = {
-      name,
-      email,
-      phone,
-      password,
-      role,
-      status,
-      companyId: req.companyId,
-    };
+    const saltRounds = parseInt(process.env.BCRYPT_SALTROUNDS);
+    userData.password = await bcrypt.hash(userData.password, saltRounds);
 
-    const hashPassword = await bcrypt.hash(password, 12);
-    reqValue.password = hashPassword;
-
-    const result = await createUser(reqValue);
-    reqValue.id = result.insertId;
-    delete reqValue.password;
+    const user = await createUser(userData, companyId);
+    if (user.isCompany === false) {
+      return res.status(404).json({
+        code: 404,
+        error: "404 Not Found",
+        message: "Company Not Found!",
+      });
+    }
 
     const response = {
       code: 201,
       massage: "User create successful",
-      data: reqValue,
+      data: user,
       links: {
         self: {
           method: "POST",
           url: "/users",
         },
-        signin: {
-          method: "POST",
-          url: "/auth/signin",
+        get: {
+          method: "GET",
+          url: `/users/${user.id}`,
         },
         update: {
           method: "PATCH",
-          url: `/users/${result.insertId}`,
+          url: `/users/${user.id}`,
         },
         delete: {
           method: "DELETE",
-          url: `/users/${result.insertId}`,
+          url: `/users/${user.id}`,
         },
       },
     };
@@ -71,6 +67,8 @@ const postUser = async (req, res, next) => {
 
 const getAllUser = async (req, res, next) => {
   const { role, companyId } = req;
+  const queries = req.query;
+
   const result = validationResult(req);
   try {
     // Error validation
@@ -81,25 +79,22 @@ const getAllUser = async (req, res, next) => {
         .json({ code: 400, error: "Bad Request !", data: error });
     }
 
-    const query = req.query;
-    const users = await getAllUsers(query, role, companyId);
+    queries.page = parseInt(queries.page || 1);
+    queries.limit = parseInt(queries.limit || 10);
+    let { page, limit } = queries;
 
-    let { page, limit } = query;
-    page = parseInt(page);
-    limit = parseInt(limit);
-    let total_user = 0;
+    const offset = (page - 1) * limit;
+    const { users, total_items } = await getAllUsers({
+      role,
+      companyId,
+      offset,
+      queries,
+    });
+
     let total_page = 0;
 
-    if (!limit) {
-      limit = 10;
-    }
-    if (!page) {
-      page = 1;
-    }
-
-    if (users[0]) {
-      total_user = users[0].total_user;
-      total_page = Math.ceil(total_user / limit);
+    if (users) {
+      total_page = Math.ceil(total_items / limit);
     }
 
     const currentUrl = generateURL(req.query);
@@ -121,7 +116,7 @@ const getAllUser = async (req, res, next) => {
         next_page: parseInt(page) + 1,
         prev_page: parseInt(page) - 1,
         total_page,
-        total_items: total_user,
+        total_items: total_items,
       },
       links: {
         self: {
@@ -160,14 +155,18 @@ const getUserById = async (req, res, next) => {
     const userId = req.params.id;
     const role = req.role;
 
-    const user = await getSingleUser(userId, companyId, role);
-    user[0].link = `/users/${userId}`;
+    let user = await getSingleUser({ userId, companyId, role });
+    if (user.length <= 0) {
+      return res
+        .status(404)
+        .json({ code: 404, error: "Not Found", message: "User not found" });
+    }
 
     const response = {
       code: 200,
       message: "Success",
       data: user[0],
-      lins: {
+      links: {
         self: {
           method: "GET",
           url: `users/${userId}`,
@@ -191,6 +190,10 @@ const getUserById = async (req, res, next) => {
 };
 
 const patchUser = async (req, res, next) => {
+  const userId = req.params.id;
+  const data = req.body;
+  const { companyId, role } = req;
+
   try {
     // error validation
     const { errors } = validationResult(req);
@@ -201,12 +204,17 @@ const patchUser = async (req, res, next) => {
         .json({ code: 400, error: "Bad Request", data: error });
     }
 
-    const userId = req.params.id;
-    const updatedUser = await updateUser(req.body, userId);
-
-    if (updatedUser) {
-      updatedUser.link = `/users/${userId}`;
+    const isUser = await getSingleUser({ userId, companyId, role });
+    if (isUser.length <= 0) {
+      return res.status(404).json({
+        code: 404,
+        error: "Not Found",
+        message: "Content Not Available!",
+      });
     }
+    const updatedUser = await updateUser(data, userId);
+
+    delete updatedUser.password;
 
     const response = {
       code: 200,
@@ -236,19 +244,23 @@ const patchUser = async (req, res, next) => {
 };
 
 const deleteUser = async (req, res, next) => {
+  const userId = req.params.id;
+  const { companyId, role } = req;
+
   try {
-    // error validation
-    const { errors } = validationResult(req);
-    if (errors.length > 0) {
-      const error = errorFormatter(errors);
-      res.status(400).json({ code: 400, error: "Bad Request", data: error });
-    }
+    const isUser = await getSingleUser({ userId, companyId, role });
 
-    const deletedUser = await deleteUserById(req.params.id);
-
-    if (deletedUser) {
-      return res.status(204).json({ code: 204 });
+    if (isUser.length <= 0) {
+      return res.status(404).json({
+        code: 404,
+        error: "Not Found",
+        message: "Content not Available!",
+      });
     }
+    
+    const deletedUser = await deleteUserById(userId)
+    res.status(204).json()
+
   } catch (error) {
     next(error);
   }

@@ -10,7 +10,6 @@ const userPermission = require("../../../middleware/userPermission");
 const { checkActive } = require("../../../middleware/checkActive");
 const {
   createCategoryValidation,
-  getAllCategory,
   patchCategoryValidation,
 } = require("./categoriesErrorValidator");
 
@@ -20,10 +19,11 @@ router.post(
   "/",
   checkLogin,
   checkActive,
+  userPermission,
   createCategoryValidation(),
   createCategory
 );
-router.get("/", checkLogin, checkActive, getAllCategory(), getAllCategories);
+router.get("/", checkLogin, checkActive, getAllCategories);
 router.get("/:id", checkLogin, checkActive, getSingleCategory);
 router.patch(
   "/:id",
@@ -33,5 +33,11 @@ router.patch(
   patchCategoryValidation(),
   patchCategoryById
 );
-router.delete("/:id", checkLogin, checkActive, userPermission, deleteCategoryById);
+router.delete(
+  "/:id",
+  checkLogin,
+  checkActive,
+  userPermission,
+  deleteCategoryById
+);
 module.exports = router;

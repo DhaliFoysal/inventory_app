@@ -1,3 +1,5 @@
+const userPermission = require("../../../middleware/userPermission");
+
 const {
   postProduct,
   getAllProduct,
@@ -7,19 +9,46 @@ const {
   getProductBarcode,
   getIsBarcode,
   getAllByNameForDropdown,
+  patchProductPrice,
+  getAllForDropdown,
 } = require("./productsControllers");
 const checkLogin = require("../../../middleware/checkLogin");
-const { postProductValidation } = require("./productsErrorValidator");
-
+const { checkActive } = require("../../../middleware/checkActive");
+const {
+  postProductValidation,
+  updateProductValidation,
+  sellingPriceValidation,
+} = require("./productsErrorValidator");
 const router = require("express").Router();
 
-router.post("/", checkLogin, postProductValidation(), postProduct);
-router.get("/", checkLogin, getAllProduct);
-router.get("/id", checkLogin, getProductById);
-router.patch("/id", checkLogin, patchProduct);
-router.delete("/id", checkLogin, deleteProduct);
-router.post("/generateBarcode", checkLogin, getProductBarcode);
-router.get("/isBarcodeExist", checkLogin, getIsBarcode);
-router.get("/getAllByNameForDropdown", checkLogin, getAllByNameForDropdown);
+router.post(
+  "/",
+  checkLogin,
+  checkActive,
+  userPermission,
+  postProductValidation(),
+  postProduct
+);
+router.get("/", checkLogin, checkActive, getAllProduct);
+router.get("/:id", checkLogin, checkActive, getProductById);
+router.patch(
+  "/:id",
+  checkLogin,
+  checkActive,
+  userPermission,
+  updateProductValidation(),
+  patchProduct
+);
+router.patch(
+  "/updatePrice/:id",
+  checkLogin,
+  checkActive,
+  userPermission,
+  sellingPriceValidation(),
+  patchProductPrice
+);
+
+router.delete("/:id", checkLogin, checkActive, userPermission, deleteProduct);
+router.get("/get_all/dropdown", checkLogin, checkActive, getAllForDropdown);
 
 module.exports = router;

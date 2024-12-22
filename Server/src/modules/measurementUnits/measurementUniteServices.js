@@ -1,80 +1,72 @@
-const db = require("../../../db/db");
+const prisma = require("../../../db/prisma");
 
-const createUnit = async (value, userId) => {
+const createUnit = async (data) => {
   try {
-    const checkQuery = `SELECT * FROM measurementUnit WHERE name='${value.name}'`;
-    const unit = await db.query(checkQuery);
-
-    if (unit[0].length > 0) {
-      return { code: 409, data: "" };
+    // check is Unit
+    const isUnit = await prisma.measurement_Unit.findMany({
+      where: {
+        AND: [{ type: data.type }, { companyId: data.companyId }],
+      },
+    });
+    if (isUnit.length > 0) {
+      return { isUnit: true };
     }
 
-    const postQuery = `INSERT INTO measurementUnit (name, symbol, userId)
-                        VALUES ('${value.name}','${value.symbol}','${userId}')`;
+    const unit = prisma.measurement_Unit.create({
+      data: { ...data },
+    });
 
-    const createUnit = await db.query(postQuery);
-    const insertId = createUnit[0]?.insertId;
-    const createdUnit = await db.query(
-      `SELECT * FROM measurementUnit WHERE id='${insertId}'`
-    );
-
-    return { code: "", data: createdUnit[0][0] };
+    return unit;
   } catch (error) {
     throw new Error(error);
   }
 };
 
-const getUnits = async () => {
+const getUnits = async (companyId) => {
   try {
-    const unitQuery = `SELECT * FROM measurementUnit WHERE 1`;
-    const units = await db.query(unitQuery);
-
-    return { code: 200, data: units[0] };
+    const units = await prisma.measurement_Unit.findMany({
+      where: {
+        companyId,
+      },
+    });
+    return units;
   } catch (error) {
     throw new Error(error);
   }
 };
 
-const getSingleUnit = async (id) => {
+const getSingleUnit = async ({ id, companyId, role }) => {
   try {
-    const unitQuery = `SELECT * FROM measurementUnit WHERE id=${id}`;
-    const units = await db.query(unitQuery);
-    if (units[0].length <= 0) {
-      return { code: 404, data: "" };
-    }
+    const unit = await prisma.measurement_Unit.findMany({
+      where:
+        role === "superAdmin"
+          ? { id }
+          : {
+              id,
+              OR: [{ companyId }, { companyId: "global" }],
+            },
+    });
 
-    return { code: 200, data: units[0][0] };
+    if (unit.length > 0) {
+      return unit[0];
+    } else {
+      return null;
+    }
   } catch (error) {
     throw new Error(error);
   }
 };
 
-const updateUnit = async (value, id) => {
-  const time = new Date().toISOString();
+const updateUnit = async (data, id) => {
   try {
-    const checkQuery = `SELECT * FROM measurementUnit WHERE id='${id}'`;
-    const unit = await db.query(checkQuery);
-    if (unit[0].length <= 0) {
-      return { code: 404, data: "" };
-    }
+    const result = await prisma.measurement_Unit.update({
+      where: {
+        id,
+      },
+      data: { ...data },
+    });
 
-    const checkByNameQuery = `SELECT * FROM measurementUnit 
-                                WHERE name='${value.name}' AND id<>'${id}'`;
-
-    const unitByName = await db.query(checkByNameQuery);
-    if (unitByName[0].length > 0) {
-      return { code: 409, data: "" };
-    }
-
-    const updateQuery = `UPDATE measurementunit 
-                            SET name='${value.name}',symbol='${value.symbol}', updatedAt='${time}' 
-                            WHERE id=${id}`;
-
-    await db.query(updateQuery);
-
-    const updatedUnit = await db.query(checkQuery);
-
-    return { code: 200, data: updatedUnit[0][0] };
+    return result;
   } catch (error) {
     throw new Error(error);
   }
@@ -82,18 +74,13 @@ const updateUnit = async (value, id) => {
 
 const deleteUnitById = async (id) => {
   try {
-    const checkQuery = `SELECT * FROM measurementUnit WHERE id='${id}'`;
-    const unit = await db.query(checkQuery);
+    const deletedUnit = await prisma.measurement_Unit.delete({
+      where: {
+        id,
+      },
+    });
 
-    if (unit[0].length <= 0) {
-      return { code: 404, data: "" };
-    }
-
-    const deleteQuery = `DELETE FROM measurementunit WHERE id='${id}'`;
-
-    await db.query(deleteQuery);
-
-    return { code: 204, data: "" };
+    return deletedUnit;
   } catch (error) {
     throw new Error(error);
   }

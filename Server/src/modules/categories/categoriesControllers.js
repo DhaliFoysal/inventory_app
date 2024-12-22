@@ -7,19 +7,32 @@ const {
   updateCategoriesById,
   deleteCategory,
 } = require("./categoriesServices");
-const generateURL = require("../../utils/generateURL");
 
 const createCategory = async (req, res, next) => {
   const result = validationResult(req);
+  const { name, description } = req.body;
+  const { companyId } = req;
 
   try {
+    // Error validation
     if (!result.isEmpty()) {
       const error = errorFormatter(result.errors);
       return res
         .status(400)
         .json({ code: 400, error: "Bad Request", date: error });
     }
-    const category = await postCategory(req);
+
+    const category = await postCategory({ name, description, companyId });
+
+    // check Exist category & return response
+    if (category.isCategory) {
+      return res.status(409).json({
+        code: 409,
+        error: "Conflict",
+        message: "Category  already Exist",
+      });
+    }
+
     res.status(201).json({
       code: 201,
       message: "Success",
@@ -45,82 +58,11 @@ const createCategory = async (req, res, next) => {
 };
 
 const getAllCategories = async (req, res, next) => {
-  const result = validationResult(req);
+  const companyId = req.companyId;
 
   try {
-    if (!result.isEmpty()) {
-      const error = errorFormatter(result.errors);
-      return res
-        .status(400)
-        .json({ code: 400, error: "Bad Request", date: error });
-    }
-
-    // find offset
-    let { page, limit } = req.query;
-    if (!page) {
-      page = 1;
-    }
-    if (!limit) {
-      limit = 10;
-    }
-    page = parseInt(page);
-    limit = parseInt(limit);
-    const offset = limit * page - limit;
-
-    const categories = await getCategories(req, limit, offset);
-
-    const total_items = categories[0]?.total_categories || 0;
-    const total_page = Math.ceil(total_items / limit);
-
-    const currentUrl = generateURL(req.query);
-
-    // generate Next url
-    const params = req.query;
-    params.page = page + 1;
-    const nextUrl = generateURL(params);
-
-    // generate Next url
-    params.page = page - 1;
-    const prevUrl = generateURL(params);
-
-    const response = {
-      code: 200,
-      message: "Success",
-      data: categories,
-      pagination: {
-        page,
-        limit,
-        next_page: page + 1,
-        prev_page: page - 1,
-        total_page,
-        total_items,
-      },
-      links: {
-        self: {
-          method: "GET",
-          url: `/categories?${currentUrl}`,
-        },
-        next: {
-          method: "GET",
-          url: `/categories?${nextUrl}`,
-        },
-        prev: {
-          method: "GET",
-          url: `/categories?${prevUrl}`,
-        },
-      },
-    };
-
-    if (page >= total_page) {
-      delete response.pagination.next_page;
-      delete response.links.next;
-    }
-    if (page <= 1) {
-      delete response.pagination.prev_page;
-      delete response.links.prev;
-    }
-
-    res.status(200).json(response);
+    const categories = await getCategories(companyId);
+    res.status(200).json(categories);
   } catch (error) {
     next(error);
   }
@@ -128,20 +70,22 @@ const getAllCategories = async (req, res, next) => {
 
 const getSingleCategory = async (req, res, next) => {
   const id = req.params.id;
-  const { companyId, userId } = req;
+  const { companyId } = req;
   try {
-    const result = await getCategoriesById(id, companyId, userId);
-    if (!result.length > 0) {
-      return res.status(404).json({
-        code: 404,
-        error: "404 Not Found !",
-        message: "Content Not Available !",
+    const category = await getCategoriesById({ id, companyId });
+
+    if (category === null) {
+      return res.status(200).json({
+        code: 200,
+        message: "Success",
+        data: category,
       });
     }
+
     return res.status(200).json({
       code: 200,
       message: "Success",
-      data: result[0],
+      data: category,
       links: {
         self: {
           method: "GET",
@@ -163,34 +107,46 @@ const getSingleCategory = async (req, res, next) => {
 };
 
 const patchCategoryById = async (req, res, next) => {
-  // error validation
-  const result = validationResult(req);
-  if (!result.isEmpty()) {
-    const error = errorFormatter(result.errors);
-    return res
-      .status(400)
-      .json({ code: 400, error: "Bad Request !", data: error });
-  }
+  const { name, description } = req.body;
+  const { companyId } = req;
+  const id = req.params.id;
 
   try {
-    // value destructure
-    const value = req.body;
-    const { companyId, role } = req;
-    const id = req.params.id;
+    // Error validation
+    const result = validationResult(req);
+    if (!result.isEmpty()) {
+      const error = errorFormatter(result.errors);
+      return res
+        .status(400)
+        .json({ code: 400, error: "Bad Request !", data: error });
+    }
 
-    const category = await updateCategoriesById(value, id, companyId);
-
-    if (category.code === 404) {
+    const isCategory = await getCategoriesById({ id, companyId });
+    if (!isCategory) {
       return res.status(404).json({
         code: 404,
-        error: "404 Not Found",
-        message: "Content Not Available!",
+        error: "404 Not Found!",
+        message: "Content not Available",
       });
     }
+
+    const updatedCategory = await updateCategoriesById({
+      categoryData: req.body,
+      companyId,
+      id,
+    });
+    if (updatedCategory.fail) {
+      return res.status(500).json({
+        code: 500,
+        error: "Server Error",
+        message: "Update failed Please try again later",
+      });
+    }
+
     return res.status(200).json({
       code: 200,
       message: "Category updated Successful",
-      data: category.data,
+      data: updatedCategory,
       links: {
         self: {
           method: "PATCH",
@@ -210,23 +166,25 @@ const patchCategoryById = async (req, res, next) => {
     next(error);
   }
 };
+
 const deleteCategoryById = async (req, res, next) => {
   try {
     // value destructure
     const { companyId } = req;
-    const categoryId = req.params.id;
+    const id = req.params.id;
 
-    const category = await deleteCategory(categoryId, companyId);
-
-    if (category.code === 404) {
+    const isCategory = await getCategoriesById({ id, companyId });
+    if (!isCategory) {
       return res.status(404).json({
         code: 404,
-        error: "404 Not Found",
-        message: "Content Not Available!",
+        error: "404 not found",
+        message: "Content not available!",
       });
     }
-     res.status(204).json();
 
+    const deletedCategory = await deleteCategory({ id, companyId });
+
+    res.status(204).json();
   } catch (error) {
     next(error);
   }

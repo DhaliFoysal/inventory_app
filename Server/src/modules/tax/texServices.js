@@ -1,83 +1,87 @@
-const db = require("../../../db/db");
+const prisma = require("../../../db/prisma.js");
 
-const createTax = async (req) => {
+const createTax = async (data, companyId) => {
   try {
-    let taxId;
-    const { percent, title } = req.body;
-    const { userId } = req;
-    const checkQuery = `SELECT * FROM tax 
-                        WHERE title='${title}' OR id='${taxId}'`;
+    const isTax = await prisma.tax.findMany({
+      where: {
+        AND: [
+          { title: data.title },
+          {
+            OR: [{ companyId: companyId }, { companyId: "global" }],
+          },
+        ],
+      },
+    });
 
-    const isTax = await db.query(checkQuery);
-    if (isTax[0].length > 0) {
-      return {
-        code: 409,
-        data: {},
-      };
+    if (isTax.length > 0) {
+      return { isTax: true };
     }
 
-    const createQuery = `INSERT INTO tax ( percent, title, userId) 
-                        VALUES (${percent},'${title}','${userId}')`;
-
-    await db.query(createQuery);
-    const newTax = await db.query(checkQuery);
-
-    return { code: 201, data: newTax[0][0] };
+    const tax = await prisma.tax.create({
+      data: {
+        ...data,
+        companyId,
+      },
+    });
+    return tax;
   } catch (error) {
     throw new Error(error);
   }
 };
 
-const getTaxes = async () => {
+const getTaxes = async (companyId) => {
   try {
-    const getQuery = `SELECT id, percent, title FROM tax WHERE 1 `;
+    const tax = await prisma.tax.findMany({
+      where: {
+        OR: [{ companyId }, { companyId: "global" }],
+      },
+    });
 
-    const tax = await db.query(getQuery);
-
-    return { code: 201, data: tax[0] };
+    return tax;
   } catch (error) {
     throw new Error(error);
   }
 };
 
-const getSingleTax = async (id) => {
+const getSingleTax = async (id, companyId, role) => {
   try {
-    const getQuery = `SELECT * FROM tax WHERE id=${id} `;
+    const orValue = [];
 
-    const tax = await db.query(getQuery);
-
-    if (tax[0].length <= 0) {
-      return { code: 404, data: "" };
+    if (role !== "superAdmin") {
+      orValue.push({ companyId });
     }
 
-    return { code: 201, data: tax[0][0] };
+    const tax = await prisma.tax.findMany({
+      where: {
+        AND: [
+          { id },
+          {
+            OR: orValue,
+          },
+        ],
+      },
+    });
+
+    if (tax.length > 0) {
+      return tax[0];
+    } else {
+      return [];
+    }
   } catch (error) {
     throw new Error(error);
   }
 };
 
-const updateSingleTax = async (value, id, userId) => {
-  const time = new Date().toISOString();
+const updateSingleTax = async (data, id) => {
   try {
-    const getQueryById = `SELECT * FROM tax WHERE id=${id}`;
-    const getQueryByTitle = `SELECT * FROM tax WHERE title='${value.title}' id<>'${id}'`;
+    const updatedTax = await prisma.tax.update({
+      where: {
+        id: id,
+      },
+      data: { ...data },
+    });
 
-    const updateQuery = `UPDATE tax SET percent='${value.percent}',title='${value.title}', updatedAt='${time}' 
-                          WHERE id='${id}' AND userId='${userId}'`;
-
-    const tax = await db.query(getQueryById);
-    if (tax[0].length <= 0) {
-      return { code: 404, data: "" };
-    }
-
-    const taxByTitle = await db.query(getQueryByTitle);
-    if (taxByTitle[0].length > 0) {
-      return { code: 409, data: "" };
-    }
-    await db.query(updateQuery);
-    const updatedTax = await db.query(getQueryById);
-
-    return { code: 201, data: updatedTax[0][0] };
+    return updatedTax;
   } catch (error) {
     throw new Error(error);
   }
@@ -85,16 +89,12 @@ const updateSingleTax = async (value, id, userId) => {
 
 const deleteTaxById = async (id) => {
   try {
-    const getQuery = `SELECT * FROM tax WHERE id='${id}'`;
-    const deleteQuery = `DELETE FROM tax WHERE id='${id}'`;
-
-    const getTax = await db.query(getQuery);
-    if (getTax[0].length <= 0) {
-      return { code: 404, data: "" };
-    }
-
-    await db.query(deleteQuery);
-    return { code: 204, data: "" };
+    const deletedTax = await prisma.tax.delete({
+      where: {
+        id,
+      },
+    });
+    return deletedTax;
   } catch (error) {
     throw new Error(error);
   }
