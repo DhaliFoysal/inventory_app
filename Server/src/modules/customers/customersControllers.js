@@ -7,13 +7,16 @@ const {
   customersForDropdown,
   customerUpdate,
   customerDelete,
+  createCustomer,
 } = require("./customersService");
 const generateUrl = require("../../utils/generateURL");
+const { getCompanyById } = require("../companys/companysControllers");
 
 const postCustomer = async (req, res, next) => {
   const result = validationResult(req);
-  const { userId, companyId } = req;
-  const value = req.body;
+  const companyId = req.companyId;
+  const userData = req.body;
+
   try {
     // Error Validation
     if (!result.isEmpty()) {
@@ -23,19 +26,22 @@ const postCustomer = async (req, res, next) => {
         .json({ code: 400, error: "Bade Request !", data: error });
     }
 
-    const post = await createPost(value, companyId, userId);
-    if (post.code === 409) {
+    userData.isTrader = /^true$/i.test(req.body.isTrader);
+
+    const customer = await createCustomer(userData, companyId);
+
+    if (customer.isCustomer) {
       return res.status(409).json({
-        code: post.code,
+        code: 409,
         error: "Conflict",
         message: "Customer already Exist",
       });
     }
 
-    res.status(201).json({
+    return res.status(201).json({
       code: 201,
       message: "Success",
-      data: post.data,
+      data: customer,
       links: {
         self: {
           method: "POST",
@@ -43,11 +49,11 @@ const postCustomer = async (req, res, next) => {
         },
         update: {
           method: "PATCH",
-          url: `/customers/${post.data.id}`,
+          url: `/customers/${customer.id}`,
         },
         delete: {
           method: "DELETE",
-          url: `/customers/${post.data.id}`,
+          url: `/customers/${customer.id}`,
         },
       },
     });
@@ -56,224 +62,238 @@ const postCustomer = async (req, res, next) => {
   }
 };
 
-const getAllCustomers = async (req, res, next) => {
-  const companyId = req.companyId;
-  const result = validationResult(req);
-  let page = parseInt(req.query.page);
-  let limit = parseInt(req.query.limit);
+// const getAllCustomers = async (req, res, next) => {
+//   const companyId = req.companyId;
+//   const result = validationResult(req);
+//   let page = parseInt(req.query.page);
+//   let limit = parseInt(req.query.limit);
 
-  try {
-    // error validation
-    if (!result.isEmpty()) {
-      const error = errorFormatter(result.errors);
-      return res
-        .status(400)
-        .json({ code: 400, error: "Bad Request", data: error });
-    }
+//   try {
+//     // error validation
+//     if (!result.isEmpty()) {
+//       const error = errorFormatter(result.errors);
+//       return res
+//         .status(400)
+//         .json({ code: 400, error: "Bad Request", data: error });
+//     }
 
-    const customers = await fetchAllCustomer(req.query, companyId);
-    const totalPage = Math.ceil(customers[0]?.total_customers / limit) || 0;
-    const currentUrl = generateUrl(req.query);
-    const queryURL = req.query;
+//     const customers = await fetchAllCustomer(req.query, companyId);
+//     const totalPage = Math.ceil(customers[0]?.total_customers / limit) || 0;
+//     const currentUrl = generateUrl(req.query);
+//     const queryURL = req.query;
 
-    queryURL.page = parseInt(queryURL.page) + 1;
-    const nextURL = generateUrl(queryURL);
+//     queryURL.page = parseInt(queryURL.page) + 1;
+//     const nextURL = generateUrl(queryURL);
 
-    queryURL.page = parseInt(queryURL.page) - 2;
-    const prevURL = generateUrl(queryURL);
+//     queryURL.page = parseInt(queryURL.page) - 2;
+//     const prevURL = generateUrl(queryURL);
 
-    const response = {
-      code: 200,
-      message: "Success",
-      data: customers,
-      pagination: {
-        page: `${page}`,
-        limit: `${limit}`,
-        total_page: `${totalPage}`,
-        total_items: `${customers[0]?.total_customers || 0}`,
-        next_page: `${page + 1}`,
-        prev_page: `${page - 1}`,
-      },
-      links: {
-        self: {
-          method: "GET",
-          url: `/customers?${currentUrl}`,
-        },
-        next: {
-          method: "GET",
-          url: `/customers?${nextURL}`,
-        },
-        prev: {
-          method: "GET",
-          url: `/customers?${prevURL}`,
-        },
-      },
-    };
+//     const response = {
+//       code: 200,
+//       message: "Success",
+//       data: customers,
+//       pagination: {
+//         page: `${page}`,
+//         limit: `${limit}`,
+//         total_page: `${totalPage}`,
+//         total_items: `${customers[0]?.total_customers || 0}`,
+//         next_page: `${page + 1}`,
+//         prev_page: `${page - 1}`,
+//       },
+//       links: {
+//         self: {
+//           method: "GET",
+//           url: `/customers?${currentUrl}`,
+//         },
+//         next: {
+//           method: "GET",
+//           url: `/customers?${nextURL}`,
+//         },
+//         prev: {
+//           method: "GET",
+//           url: `/customers?${prevURL}`,
+//         },
+//       },
+//     };
 
-    if (page >= totalPage) {
-      delete response.pagination.next_page;
-      delete response.links.next;
-    }
+//     if (page >= totalPage) {
+//       delete response.pagination.next_page;
+//       delete response.links.next;
+//     }
 
-    if (page <= 1) {
-      delete response.pagination.prev_page;
-      delete response.links.prev;
-    }
+//     if (page <= 1) {
+//       delete response.pagination.prev_page;
+//       delete response.links.prev;
+//     }
 
-    res.status(201).json(response);
-  } catch (error) {
-    next(error);
-  }
-};
+//     res.status(200).json(response);
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 
-const getCustomersForDropdown = async (req, res, next) => {
-  const search = req.query.search;
-  const result = validationResult(req);
+// const getCustomersForDropdown = async (req, res, next) => {
+//   const search = req.query.search;
+//   const result = validationResult(req);
 
-  try {
-    // Error Validation
-    if (!result.isEmpty()) {
-      const error = errorFormatter(result.errors);
-      return res
-        .status(400)
-        .json({ code: 400, error: "Bade Request !", data: error });
-    }
+//   try {
+//     // Error Validation
+//     if (!result.isEmpty()) {
+//       const error = errorFormatter(result.errors);
+//       return res
+//         .status(400)
+//         .json({ code: 400, error: "Bade Request !", data: error });
+//     }
 
-    const customers = await customersForDropdown(search, req.companyId);
-    const response = {
-      code: 200,
-      message: "Success",
-      data: customers,
-    };
+//     const customers = await customersForDropdown(search, req.companyId);
+//     const response = {
+//       code: 200,
+//       message: "Success",
+//       data: customers,
+//     };
 
-    res.status(200).json(response);
-  } catch (error) {
-    next(error);
-  }
-};
+//     res.status(200).json(response);
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 
-const getCustomerById = async (req, res, next) => {
-  const id = req.params.id;
-  const companyId = req.companyId;
-  const result = validationResult(req);
+// const getCustomerById = async (req, res, next) => {
+//   const id = req.params.id;
+//   const companyId = req.companyId;
+//   const result = validationResult(req);
 
-  try {
-    // Error validation
-    if (!result.isEmpty()) {
-      const error = errorFormatter(result.errors);
-      return res
-        .status(400)
-        .json({ code: 400, error: "Bade Request !", data: error });
-    }
+//   try {
+//     // Error validation
+//     if (!result.isEmpty()) {
+//       const error = errorFormatter(result.errors);
+//       return res
+//         .status(400)
+//         .json({ code: 400, error: "Bade Request !", data: error });
+//     }
 
-    const customer = await fetchAllCustomerById(id, companyId);
-    const response = {
-      code: 200,
-      message: "Success",
-      data: customer[0] || {},
-      links: {
-        self: {
-          method: "GET",
-          url: `/customers/${id}`,
-        },
-        update: {
-          method: `PATCH`,
-          url: `/customers/${id}`,
-        },
-        delete: {
-          method: `DELETE`,
-          url: `/customers/${id}`,
-        },
-      },
-    };
+//     const customer = await fetchAllCustomerById(id, companyId);
 
-    res.status(200).json(response);
-  } catch (error) {
-    next(error);
-  }
-};
+//     // TODO implement pagination
 
-const patchCustomerById = async (req, res, next) => {
-  const id = req.params.id;
-  const data = req.body;
+//     // todo  implement pagination
 
-  const errorResult = validationResult(req);
+//     if (customer.length <= 0) {
+//       return res
+//         .status(404)
+//         .json({
+//           code: 404,
+//           error: "Not Found",
+//           message: "Content not available",
+//         });
+//     }
+//     const response = {
+//       code: 200,
+//       message: "Success",
+//       data: customer[0] || {},
+//       links: {
+//         self: {
+//           method: "GET",
+//           url: `/customers/${id}`,
+//         },
+//         update: {
+//           method: `PATCH`,
+//           url: `/customers/${id}`,
+//         },
+//         delete: {
+//           method: `DELETE`,
+//           url: `/customers/${id}`,
+//         },
+//       },
+//     };
 
-  try {
-    // Error Validation
-    if (!errorResult.isEmpty()) {
-      const error = errorFormatter(errorResult.errors);
-      return res
-        .status(400)
-        .json({ code: 400, error: "Bad Request", data: error });
-    }
+//     res.status(200).json(response);
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 
-    const result = await customerUpdate(id, req.companyId, data);
+// const patchCustomerById = async (req, res, next) => {
+//   const id = req.params.id;
+//   const data = req.body;
 
-    if (result === false) {
-      return res.status(404).json({
-        code: 404,
-        error: "Not Found",
-        message: "Content not available",
-      });
-    }
+//   const errorResult = validationResult(req);
 
-    const response = {
-      code: 200,
-      message: "Success",
-      data: result[0],
-      link: {
-        self: {
-          method: "PATCH",
-          url: `/customers/${id}`,
-        },
-        update: {
-          method: "PATCH",
-          url: `/customers/${id}`,
-        },
-        delete: {
-          method: "DELETE",
-          url: `/customers/${id}`,
-        },
-      },
-    };
-    return res.status(200).json(response);
-  } catch (error) {
-    next(error);
-  }
-};
+//   try {
+//     // Error Validation
+//     if (!errorResult.isEmpty()) {
+//       const error = errorFormatter(errorResult.errors);
+//       return res
+//         .status(400)
+//         .json({ code: 400, error: "Bad Request", data: error });
+//     }
 
-const deleteCustomerById = async (req, res, next) => {
-  const user = {
-    userId: req.userId,
-    role: req.role,
-    companyId: req.companyId,
-  };
-  const customerId = req.params.id;
+//     const result = await customerUpdate(id, req.companyId, data);
 
-  try {
-    const result = await customerDelete(customerId, req.companyId);
-    if (result === false) {
-      return res.status(404).json({
-        code: 404,
-        error: "Not Found",
-        message: "Content not available!",
-      });
-    }
+//     if (result === false) {
+//       return res.status(404).json({
+//         code: 404,
+//         error: "Not Found",
+//         message: "Content not available",
+//       });
+//     }
 
-    if (result === true) {
-      return res.status(204).json();
-    }
-  } catch (error) {
-    next(error);
-  }
-};
+//     const response = {
+//       code: 200,
+//       message: "Success",
+//       data: result[0],
+//       link: {
+//         self: {
+//           method: "PATCH",
+//           url: `/customers/${id}`,
+//         },
+//         update: {
+//           method: "PATCH",
+//           url: `/customers/${id}`,
+//         },
+//         delete: {
+//           method: "DELETE",
+//           url: `/customers/${id}`,
+//         },
+//       },
+//     };
+//     return res.status(200).json(response);
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+// const deleteCustomerById = async (req, res, next) => {
+//   const user = {
+//     userId: req.userId,
+//     role: req.role,
+//     companyId: req.companyId,
+//   };
+//   const customerId = req.params.id;
+
+//   try {
+//     const result = await customerDelete(customerId, req.companyId);
+//     if (result === false) {
+//       return res.status(404).json({
+//         code: 404,
+//         error: "Not Found",
+//         message: "Content not available!",
+//       });
+//     }
+
+//     if (result === true) {
+//       return res.status(204).json();
+//     }
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 
 module.exports = {
   postCustomer,
-  getAllCustomers,
-  getCustomersForDropdown,
-  getCustomerById,
-  patchCustomerById,
-  deleteCustomerById,
+  // getAllCustomers,
+  // getCustomersForDropdown,
+  // getCustomerById,
+  // patchCustomerById,
+  // deleteCustomerById,
 };

@@ -1,5 +1,4 @@
 const { body, userId, query, param } = require("express-validator");
-const db = require("../../../db/db");
 
 const getAllErrorValidation = () => {
   return [
@@ -37,40 +36,46 @@ const getCustomerForDropdownValidation = () => {
 };
 
 const getCustomerByIdValidation = () => {
-  return [param("id").isInt().withMessage("id must be numbers")];
+  // return [param("id").isInt().withMessage("id must be numbers")];
+  return [];
 };
 
-const postErrorValidation = (req) => {
-  let customer;
-  let email;
-
+const postErrorValidation = () => {
   return [
-    body("email").custom((value) => {
-      if (value) {
-        email = value;
-      }
-      return true;
-    }),
     body("name")
       .notEmpty()
       .withMessage("Name is Required")
       .isLength({ min: 3, max: 20 })
       .withMessage("Name minimum 3 and maximum 20 characters."),
-    body("phone")
-      .notEmpty()
-      .withMessage("phone is Required")
-      .isInt()
-      .withMessage("invalid Phone")
-      .custom(async (phone, { req }) => {
-        const companyId = req.companyId;
-        const customerQuery = `SELECT phone, email FROM customers WHERE companyId='${companyId}' AND (phone='${phone}' OR email='${email}')`;
-        const customers = await db.query(customerQuery);
-        customer = customers[0][0];
-        if (phone === customer?.phone) {
-          throw new Error("Phone No already Exist");
-        }
+    body("email").custom((value) => {
+      if (!value || value.length <= 0) {
         return true;
-      }),
+      }
+      if (
+        value.length > 0 &&
+        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(
+          value
+        )
+      ) {
+        return true;
+      } else {
+        throw new Error("Invalid Email");
+      }
+    }),
+    body("phone").custom((value) => {
+      if (!value || value.length <= 0) {
+        throw new Error("phone is Required");
+      }
+
+      if (
+        value.length > 0 &&
+        /(^(\+88|0088)?(01){1}[3456789]{1}(\d){8})$/.test(value)
+      ) {
+        return true;
+      } else {
+        throw new Error("Invalid Phone Number");
+      }
+    }),
     body("address")
       .notEmpty()
       .withMessage("address is Required")
@@ -79,9 +84,9 @@ const postErrorValidation = (req) => {
     body("isTrader")
       .isBoolean()
       .withMessage("isTrader must be boolean value (false or true)"),
-    body("email").custom((email) => {
-      if (email && email === customer?.email) {
-        throw new Error("Email already Exist");
+    body("balance").custom((balance) => {
+      if (balance && typeof balance !== "number") {
+        throw new Error("Balance Must be Numbers");
       }
       return true;
     }),

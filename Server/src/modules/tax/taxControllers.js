@@ -10,6 +10,8 @@ const {
 
 const postTax = async (req, res, next) => {
   const result = validationResult(req);
+  const { percent, title } = req.body;
+  const { companyId } = req;
 
   try {
     // Error validation
@@ -21,25 +23,19 @@ const postTax = async (req, res, next) => {
         .json({ code: 400, error: "Bad Request", data: error });
     }
 
-    // Check Permission
-    if (req.role !== "superAdmin") {
-      return res.status(403).json({
-        code: 403,
-        error: "Access Denied !",
-        message: " You do not have permissions",
+    const tax = await createTax({ percent, title }, companyId);
+    if (tax.isTax) {
+      return res.status(409).json({
+        code: 409,
+        error: "Conflict",
+        message: "Tax already Exist",
       });
     }
 
-    const tax = await createTax(req);
-    if (tax.code === 409) {
-      return res
-        .status(409)
-        .json({ code: 409, error: "conflict", message: "title already Exist" });
-    }
     return res.status(201).json({
       code: 201,
       message: "Tax Created Successful",
-      data: tax.data,
+      data: tax,
       links: {
         self: {
           method: "POST",
@@ -47,11 +43,11 @@ const postTax = async (req, res, next) => {
         },
         update: {
           method: "PATCH",
-          url: `/tax/${tax.data.id}`,
+          url: `/tax/${tax.id}`,
         },
         delete: {
           method: "DELETE",
-          url: `/tax/${tax.data.id}`,
+          url: `/tax/${tax.id}`,
         },
       },
     });
@@ -60,10 +56,10 @@ const postTax = async (req, res, next) => {
   }
 };
 
-const getAllTax = async (_req, res, next) => {
+const getAllTax = async (req, res, next) => {
   try {
-    const taxes = await getTaxes();
-    res.status(200).json({ code: 200, message: "Success", data: taxes.data });
+    const taxes = await getTaxes(req.companyId);
+    res.status(200).json({ code: 200, message: "Success", data: taxes });
   } catch (error) {
     next(error);
   }
@@ -71,58 +67,79 @@ const getAllTax = async (_req, res, next) => {
 
 const getTaxById = async (req, res, next) => {
   const id = req.params.id;
-
+  const { companyId, role } = req;
   try {
-    const tax = await getSingleTax(id);
+    const tax = await getSingleTax(id, companyId, role);
 
-    if (tax.code === 404) {
-      return res.status(200).json({
-        code: 404,
-        error: "404 Not Found",
-        message: "Content Not Available",
-      });
-    }
-
-    res.status(200).json({ code: 200, message: "Success", data: tax.data });
+    return res.status(200).json({
+      code: 200,
+      message: "Success",
+      data: tax,
+      links: {
+        self: {
+          method: "GET",
+          url: `/tax/${id}`,
+        },
+        update: {
+          method: "PATCH",
+          url: `/tax/${id}`,
+        },
+        delete: {
+          method: "DELETE",
+          url: `/tax/${id}`,
+        },
+      },
+    });
   } catch (error) {
     next(error);
   }
 };
 
 const patchTax = async (req, res, next) => {
+  const data = req.body;
+  const id = req.params.id;
+  const { companyId, role } = req;
   const result = validationResult(req);
   try {
-    if (req.role !== "superAdmin") {
-      return res.status(403).json({
-        code: 403,
-        error: "Access Denied !",
-        message: " You do not have permissions",
-      });
-    }
+    // Error validation
     if (!result.isEmpty()) {
       const error = errorFormatter(result.array());
       return res
         .status(400)
         .json({ code: 400, error: "Bad Request", data: error });
     }
-    const tax = await updateSingleTax(req.body, req.params.id, req.userId);
-    if (tax.code === 404) {
+
+    // check is Tax match
+    const isTax = await getSingleTax(id, companyId, role);
+    if (isTax.length <= 0) {
       return res.status(404).json({
         code: 404,
-        error: "404 Not Found",
-        message: "Content not Available",
-      });
-    } else if (tax.code === 409) {
-      return res.status(409).json({
-        code: 409,
-        error: "Conflict",
-        message: "Content already Exist",
+        error: "404 not found!",
+        message: "Content not AvailAble!",
       });
     }
 
-    return res
-      .status(200)
-      .json({ code: 200, message: "Tax Updated Successful", data: tax.data });
+    const updatedTax = await updateSingleTax(data, id);
+
+    return res.status(200).json({
+      code: 200,
+      message: "Tax Updated Successful",
+      data: updatedTax,
+      links: {
+        self: {
+          method: "POST",
+          url: `/transactions/${id}`,
+        },
+        update: {
+          method: "PATCH",
+          url: `/transactions/${id}`,
+        },
+        delete: {
+          method: "DELETE",
+          url: `/transactions/${id}`,
+        },
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -130,24 +147,19 @@ const patchTax = async (req, res, next) => {
 
 const deleteTax = async (req, res, next) => {
   const id = req.params.id;
+  const { companyId, role } = req;
   try {
-    if (req.role !== "superAdmin") {
-      return res.status(403).json({
-        code: 403,
-        error: "Access Denied !",
-        message: " You do not have permissions",
+    // check is tax
+    const isTax = await getSingleTax(id, companyId, role);
+    if (isTax.length <= 0) {
+      return res.status(404).json({
+        code: 404,
+        error: "404 Not Found",
+        message: "Content not Available!",
       });
     }
 
     const deletedTax = await deleteTaxById(id);
-
-    if (deletedTax.code === 404) {
-      return res.status(404).json({
-        code: 404,
-        error: "404 Not Found",
-        message: "Content not Available",
-      });
-    }
 
     res.status(204).json();
   } catch (error) {

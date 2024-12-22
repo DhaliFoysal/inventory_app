@@ -1,60 +1,149 @@
-const db = require("../../../db/db");
+const prisma = require("../../../db/prisma");
 
-const createUser = async (value) => {
+const createUser = async (userData, companyId) => {
   try {
-    const time = new Date().toJSON();
-    const queryText = `INSERT INTO user(name, phone, email, password, role, status,companyId, updatedAt) 
-                       VALUES ('${value.name}','${value.phone}','${value.email}','${value.password}','admin','active','${value.companyId}','${time}')`;
+    const isCompany = await prisma.company.findMany({
+      where: {
+        id: companyId,
+      },
+    });
+    console.log(isCompany);
 
-    const [rows] = await db.query(queryText);
-    return rows;
+    if (isCompany.length <= 0) {
+      return { isCompany: false };
+    }
+    const user = await prisma.user.create({
+      data: { ...userData, companyId: companyId },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        status: true,
+        companyId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    return user;
   } catch (error) {
-    next(error);
+    throw new Error(error);
   }
 };
 
-const getAllUsers = async (query, role, companyId) => {
+const getAllUsers = async (data) => {
+  const { role, companyId, offset, queries } = data;
+  const { page, limit, sort_type, sort_by, search } = queries;
+
   try {
-    let { page, limit, sort_type, sort_by, search } = query;
-    const condition = role === "admin" ? `companyId = ${companyId}` : 1;
-
-    if (!page) {
-      page = 1;
-    }
-    if (!limit) {
-      limit = 10;
-    }
-
-    const offset = limit * page - limit;
-
-    const userQuery = ` SELECT id, name, phone, email, role, status, companyId, createdAt, updatedAt, 
-                            (SELECT COUNT(*) FROM user WHERE ${condition} AND (name LIKE '%${search || ""}%' OR phone LIKE '%${search || ""}%' OR email LIKE '%${search || ""}%' OR status LIKE '%${search || ""}%' )) AS total_user  
-                        FROM user
-                        WHERE ${condition} AND (name LIKE '%${search || ""}%' OR phone LIKE '%${search || ""}%' OR email LIKE '%${search || ""}%' OR status LIKE '%${search || ""}%' )
-                        ORDER BY ${sort_by || "createdAt"} ${sort_type || "asc"} LIMIT ${limit} OFFSET ${offset} `;
-
-
-    const [rows] = await db.query(userQuery, companyId);
-    return rows;
+    const getUser = async () => {
+      if (role === "superAdmin") {
+        const users = await prisma.user.findMany({
+          skip: offset,
+          take: limit,
+          where: {
+            OR: [
+              { name: { contains: search, lte: "insensitive" } },
+              { phone: { contains: search, lte: "insensitive" } },
+              { email: { contains: search, lte: "insensitive" } },
+            ],
+          },
+          orderBy: {
+            [sort_by || "name"]: sort_type || "asc",
+          },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            role: true,
+            status: true,
+            companyId: true,
+            createBy: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+        const total_items = await prisma.user.count({
+          where: {
+            OR: [
+              { name: { contains: search, lte: "insensitive" } },
+              { phone: { contains: search, lte: "insensitive" } },
+              { email: { contains: search, lte: "insensitive" } },
+            ],
+          },
+        });
+        return { users, total_items };
+      } else {
+        const users = await prisma.user.findMany({
+          where: {
+            companyId: companyId,
+            OR: [
+              { name: { contains: search, lte: "insensitive" } },
+              { phone: { contains: search, lte: "insensitive" } },
+              { email: { contains: search, lte: "insensitive" } },
+            ],
+          },
+          skip: offset,
+          take: page,
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            role: true,
+            status: true,
+            companyId: true,
+            createBy: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+        const total_items = await prisma.user.count({
+          where: {
+            companyId: companyId,
+            OR: [
+              { name: { contains: search, lte: "insensitive" } },
+              { phone: { contains: search, lte: "insensitive" } },
+              { email: { contains: search, lte: "insensitive" } },
+            ],
+          },
+        });
+        return { users, total_items };
+      }
+    };
+    return await getUser();
   } catch (error) {
     console.log(error);
     throw new Error(error);
   }
 };
 
-const getSingleUser = async (userId, companyId, role) => {
-  let condition1 = 1;
-
-  if (role !== "superAdmin") {
-    condition1 = `companyId = ${companyId} `;
-  }
+const getSingleUser = async (data) => {
+  const { userId, companyId, role } = data;
 
   try {
-    const queryText = `SELECT id, name, phone ,email, role, status, companyId, createdAt, updatedAt
-                        FROM user WHERE ${condition1} AND id = ${userId}`;
-
-    const [rows] = await db.query(queryText);
-    return rows;
+    const user = await prisma.user.findMany({
+      where: role === "superAdmin" ? { id: userId } : { id: userId, companyId },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        status: true,
+        companyId: true,
+        createBy: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    if (user.length > 0) {
+      return user[0];
+    } else {
+      return [];
+    }
   } catch (error) {
     throw new Error(error);
   }
@@ -62,42 +151,16 @@ const getSingleUser = async (userId, companyId, role) => {
 
 const updateUser = async (data, userId) => {
   try {
-    const time = new Date().toJSON();
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        ...data,
+      },
+    });
 
-    const queryText = `UPDATE user SET name='${data.name}', phone='${data.phone}', email='${data.email}', role='${data.role}', status='${data.status}', updatedAt='${time}'
-                       WHERE id=${userId}`;
-
-    const updated = await db.query(queryText);
-
-    if (updated[0].affectedRows > 0) {
-      const queryText = `SELECT id, name, email, phone, status, role, companyId, createdAt, updatedAt 
-                          FROM user 
-                          WHERE id=${userId}`;
-
-      const updatedUser = await db.query(queryText);
-
-      return updatedUser[0][0];
-    }
-  } catch (error) {
-    throw new Error(error);
-  }
-};
-
-const checkUserById = async (userId) => {
-  try {
-    const userQueryText = `SELECT role, companyId, status FROM user WHERE id=${userId}`;
-    const [rows] = await db.query(userQueryText);
-
-    const user = rows[0];
-    if (user) {
-      return {
-        companyId: user.companyId,
-        role: user.role,
-        status: user.status,
-      };
-    } else {
-      return null;
-    }
+    return updatedUser;
   } catch (error) {
     throw new Error(error);
   }
@@ -105,14 +168,12 @@ const checkUserById = async (userId) => {
 
 const deleteUserById = async (userId) => {
   try {
-    const userQueryText = `DELETE FROM user WHERE id=${userId}`;
-    const [rows] = await db.query(userQueryText);
-
-    if (rows.affectedRows > 0) {
-      return true;
-    } else {
-      return null;
-    }
+    const deletedUser = await prisma.user.delete({
+      where: {
+        id: userId,
+      },
+    });
+    return deletedUser;
   } catch (error) {
     throw new Error(error);
   }
@@ -123,6 +184,5 @@ module.exports = {
   getAllUsers,
   getSingleUser,
   updateUser,
-  checkUserById,
   deleteUserById,
 };

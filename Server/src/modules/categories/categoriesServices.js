@@ -1,108 +1,93 @@
-const db = require("../../../db/db");
+const prisma = require("../../../db/prisma");
 
-const postCategory = async (req) => {
+const postCategory = async (data) => {
   try {
-    const { name, description } = req.body;
-    const { companyId, userId } = req;
-
-    const createQuery = `INSERT INTO categories (name, description, companyId, userId) 
-                        VALUES ('${name}','${description}','${companyId}','${userId}')`;
-
-    const [rows] = await db.query(createQuery);
-
-    let data = {};
-    if (rows.insertId) {
-      (data.id = rows.insertId),
-        (data.name = name),
-        (data.companyId = companyId),
-        (data.userId = userId);
+    const isCategory = await prisma.productsCategory.findMany({
+      where: {
+        AND: [{ name: data.name }, { companyId: data.companyId }],
+      },
+    });
+    if (isCategory.length > 0) {
+      return { isCategory: true };
     }
 
-    return data;
+    const category = await prisma.productsCategory.create({
+      data: { ...data },
+    });
+    return category;
   } catch (error) {
     throw new Error(error);
   }
 };
 
-const getCategories = async (req, limit, offset) => {
-  const { sort_by, sort_type, search } = req.query;
-
+const getCategories = async (companyId) => {
   try {
-    const categoriesQuery = ` SELECT *, 
-                                (SELECT COUNT(*) FROM categories WHERE (companyId=${
-                                  req.companyId
-                                } OR companyId = 0) AND name LIKE '%${
-      search || ""
-    }%') AS total_categories
-                                FROM categories
-                                WHERE (companyId=${
-                                  req.companyId
-                                } OR companyId ='0') AND name LIKE '%${
-      search || ""
-    }%'
-                                ORDER BY ${sort_by || "createdAt"} ${
-      sort_type || "asc"
-    } LIMIT ${limit} OFFSET ${offset} `;
+    const categories = await prisma.productsCategory.findMany({
+      where: {
+        companyId,
+      },
+    });
 
-    const result = await db.query(categoriesQuery);
-
-    return result[0];
+    return categories;
   } catch (error) {
     throw new Error(error);
   }
 };
 
-const getCategoriesById = async (categoryId, companyId, userId) => {
+const getCategoriesById = async (data) => {
   try {
-    const categoryQuery = `SELECT * FROM categories 
-                      WHERE companyId=${companyId} AND id= ${categoryId}`;
-    const result = await db.query(categoryQuery);
-    return result[0];
-  } catch (error) {
-    throw new Error(error);
-  }
-};
+    const category = await prisma.productsCategory.findMany({
+      where: {
+        AND: [{ id: data.id }, { companyId: data.companyId }],
+      },
+    });
 
-const updateCategoriesById = async (value, id, companyId, userId) => {
-  try {
-    const time = new Date().toISOString();
-    const checkQuery = `SELECT * FROM categories WHERE id=${id}`;
-    const categoryQuery = `UPDATE categories SET name='${value.name}', description='${value.description}', updatedAt='${time}' WHERE id=${id} AND companyId=${companyId}`;
-
-    const isId = await db.query(checkQuery);
-
-    if (isId[0].length <= 0) {
-      return { code: 404 };
-    }
-    const result = await db.query(categoryQuery);
-
-    if (result[0].affectedRows) {
-      const updatedCategory = await db.query(checkQuery);
-      return { code: 200, data: updatedCategory[0][0] };
+    if (category.length > 0) {
+      return category[0];
+    } else {
+      return null;
     }
   } catch (error) {
     throw new Error(error);
   }
 };
 
-const deleteCategory = async (categoryId, companyId) => {
+const updateCategoriesById = async (data) => {
+  const { categoryData, companyId, id } = data;
   try {
-    const deleteQuery = `DELETE FROM categories WHERE id=${categoryId} AND companyId=${companyId}`;
-    const checkCategoryQuery = `SELECT id FROM categories WHERE id=${categoryId} AND companyId=${companyId}`;
-
-    const checkData = await db.query(checkCategoryQuery);
-    
-    if (!checkData[0]) {
-      return {
-        code: 404,
-        data: checkData[0],
-      };
+    const result = await prisma.productsCategory.updateMany({
+      where: {
+        AND: [{ id }, { companyId }],
+      },
+      data: { ...categoryData },
+    });
+    if (result.count < 1) {
+      return { fail: true };
     }
-    
-    const deletedData = db.query(deleteQuery);
-    return { code: 204, data: deletedData[0] };
+    const updatedCategory = await prisma.productsCategory.findMany({
+      where: {
+        AND: [{ id }, { companyId }],
+      },
+    });
+
+    return updatedCategory[0];
   } catch (error) {
-    next(error);
+    throw new Error(error);
+  }
+};
+
+const deleteCategory = async (data) => {
+  const { id, companyId } = data;
+  try {
+    const result = await prisma.productsCategory.delete({
+      where: {
+        id,
+      },
+    });
+
+    return result;
+  } catch (error) {
+    throw new Error(error);
   }
 };
 

@@ -11,6 +11,8 @@ const {
 
 const posUnit = async (req, res, next) => {
   const result = validationResult(req);
+  const { type, symbol } = req.body;
+  const { companyId } = req;
   try {
     // Error Validation
     if (!result.isEmpty()) {
@@ -20,28 +22,19 @@ const posUnit = async (req, res, next) => {
         .json({ code: 400, error: "Bad Request", data: error });
     }
 
-    // check Permission
-    if (req.role !== "superAdmin") {
-      return res.status(401).json({
-        code: 401,
-        error: "Access Denied",
-        message: "You do not have permission",
-      });
-    }
-
-    const unit = await createUnit(req.body, req.userId);
-    if (unit.code === 409) {
+    const unit = await createUnit({ type, symbol, companyId });
+    if (unit.isUnit) {
       return res.status(409).json({
         code: 409,
         error: "Conflict",
-        message: "measurementUint Already Exist",
+        message: "Measurement Unit already Exist",
       });
     }
 
     return res.status(201).json({
       code: 201,
       message: "Success",
-      data: unit.data,
+      data: unit,
       links: {
         self: {
           method: "POST",
@@ -49,11 +42,11 @@ const posUnit = async (req, res, next) => {
         },
         update: {
           method: "PATCH",
-          url: `/measurementunit/${unit.data.id}`,
+          url: `/measurementunit/${unit.id}`,
         },
         delete: {
           method: "DELETE",
-          url: `/measurementunit/${unit.data.id}`,
+          url: `/measurementunit/${unit.id}`,
         },
       },
     });
@@ -63,12 +56,14 @@ const posUnit = async (req, res, next) => {
 };
 
 const getAllUnit = async (req, res, next) => {
+  const companyId = req.companyId;
   try {
-    const allUnit = await getUnits();
+    const allUnit = await getUnits(companyId);
+
     const response = {
       code: 200,
       message: "Success",
-      data: allUnit.data,
+      data: allUnit,
     };
 
     res.status(200).json(response);
@@ -80,18 +75,20 @@ const getAllUnit = async (req, res, next) => {
 const getUnitById = async (req, res, next) => {
   const id = req.params.id;
   try {
-    const unit = await getSingleUnit(id);
-    if (unit.code === 404) {
-      return res.status(404).json({
-        code: 404,
-        error: "404 Not Found",
-        message: "Content Not Found",
+    const unit = await getSingleUnit({ id, companyId: req.companyId });
+
+    if (unit === null) {
+      return res.status(200).json({
+        code: 200,
+        message: "Success",
+        data: unit,
       });
     }
+
     return res.status(200).json({
-      code: unit.code,
+      code: 200,
       message: "Success",
-      data: unit.data,
+      data: unit,
       links: {
         self: {
           method: "GET",
@@ -114,6 +111,8 @@ const getUnitById = async (req, res, next) => {
 
 const patchUnit = async (req, res, next) => {
   const id = req.params.id;
+  const companyId = req.companyId;
+  const data = req.body;
   const result = validationResult(req);
 
   try {
@@ -125,34 +124,22 @@ const patchUnit = async (req, res, next) => {
         .json({ code: 400, error: "Bad Request", data: error });
     }
 
-    // check Permission
-    if (req.role !== "superAdmin") {
-      return res.status(401).json({
-        code: 401,
-        error: "Access Denied",
-        message: "You do not have permission",
+    const isUnit = await getSingleUnit({ id, companyId });
+
+    if (!isUnit) {
+      return res.status(404).json({
+        code: 404,
+        error: "404 Not found",
+        message: "Content not Available",
       });
     }
 
-    const updatedUnit = await updateUnit(req.body, id);
-    if (updatedUnit.code === 404) {
-      return res.status(404).json({
-        code: 404,
-        error: "404 Not Found",
-        message: "Contain Not Available",
-      });
-    } else if (updatedUnit.code === 409) {
-      return res.status(409).json({
-        code: 409,
-        error: "Conflict",
-        message: "MeasurementUnit Already Exist",
-      });
-    }
+    const updatedUnit = await updateUnit(data, id);
 
     return res.status(200).json({
       code: 200,
       message: "Success",
-      data: updatedUnit.data,
+      data: updatedUnit,
       links: {
         self: {
           method: "PATCH",
@@ -175,27 +162,19 @@ const patchUnit = async (req, res, next) => {
 
 const deleteUnit = async (req, res, next) => {
   const id = req.params.id;
+  const companyId = req.companyId;
   try {
-    // check Permission
-    if (req.role !== "superAdmin") {
-      return res.status(401).json({
-        code: 401,
-        error: "Access Denied",
-        message: "You do not have permission",
-      });
-    }
+    const isUnit = await getSingleUnit({ id, companyId });
 
-    const deletedUnit = await deleteUnitById(id);
-    if (deletedUnit.code === 404) {
+    if (!isUnit) {
       return res.status(404).json({
         code: 404,
-        error: "404 Not Found ",
-        message: "Contain NOt Available",
+        error: "404 Not Found",
+        message: "Content Not Available",
       });
     }
-
+    await deleteUnitById(id);
     return res.status(204).json();
-
   } catch (error) {
     next(error);
   }

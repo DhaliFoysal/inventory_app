@@ -1,5 +1,5 @@
 const { body, param, query } = require("express-validator");
-const db = require("../../../db/db");
+const prisma = require("../../../db/prisma");
 
 const createUserValidator = () => {
   return [
@@ -11,12 +11,19 @@ const createUserValidator = () => {
     body("phone")
       .notEmpty()
       .withMessage("phone is required")
-      .isLength({ min: 11 })
-      .withMessage("phone must be at least 11 characters long")
       .custom(async (value) => {
-        const queryText = `SELECT phone FROM user WHERE phone = '${value}'`;
-        const [rows] = await db.query(queryText);
-        if (rows.length > 0) {
+        if (
+          value &&
+          !/(^(\+88|0088)?(01){1}[3456789]{1}(\d){8})$/.test(value)
+        ) {
+          throw new Error("Invalid Phone Number");
+        }
+        const user = await prisma.user.findMany({
+          where: {
+            phone: value,
+          },
+        });
+        if (user.length > 0) {
           throw new Error("Phone number already Exist");
         }
         return true;
@@ -26,20 +33,27 @@ const createUserValidator = () => {
       .withMessage("Password is required")
       .isLength({ min: 8 })
       .withMessage("password must be at least 8 characters long"),
-    body("email").custom((value) => {
-      if (value.length <= 0) {
+    body("email").custom(async (value) => {
+      if (!value || value.length <= 0) {
         return true;
       }
       if (
         value.length > 0 &&
-        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(
+        !/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(
           value
         )
       ) {
-        return true;
-      } else {
         throw new Error("Invalid Email");
       }
+      const user = await prisma.user.findMany({
+        where: {
+          email: value,
+        },
+      });
+      if (user.length > 0) {
+        throw new Error("Email already Exist");
+      }
+      return true;
     }),
     body("role")
       .notEmpty()
@@ -124,15 +138,7 @@ const getAllUserValidation = () => {
 };
 
 const updateUserValidator = () => {
-  let id;
   return [
-    param("id")
-      .isInt({ min: 1 })
-      .withMessage("User ID must be a positive integer")
-      .custom((value) => {
-        id = value;
-        return true;
-      }),
     body("name")
       .notEmpty()
       .withMessage("name is required")
@@ -141,30 +147,48 @@ const updateUserValidator = () => {
     body("phone")
       .notEmpty()
       .withMessage("phone is required")
-      .isLength({ min: 11 })
-      .withMessage("phone must be at least 11 characters long")
-      .custom(async (value) => {
-        const queryText = `SELECT id, phone FROM user WHERE phone = '${value}'`;
-        const [rows] = await db.query(queryText);
-        if (id != rows[0]?.id && rows.length > 0) {
+      .custom(async (value, { req }) => {
+        const id = req.params.id;
+        if (
+          value &&
+          !/(^(\+88|0088)?(01){1}[3456789]{1}(\d){8})$/.test(value)
+        ) {
+          throw new Error("Invalid Phone Number");
+        }
+        const user = await prisma.user.findMany({
+          where: {
+            phone: value,
+            NOT: { id },
+          },
+        });
+        if (user.length > 0) {
           throw new Error("Phone number already Exist");
         }
         return true;
       }),
-    body("email").custom((value) => {
-      if (value.length <= 0) {
+    body("email").custom(async (value, { req }) => {
+      const id = req.params.id;
+      if (!value || value.length <= 0) {
         return true;
       }
       if (
         value.length > 0 &&
-        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(
+        !/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(
           value
         )
       ) {
-        return true;
-      } else {
         throw new Error("Invalid Email");
       }
+      const user = await prisma.user.findMany({
+        where: {
+          email: value,
+          NOT: { id },
+        },
+      });
+      if (user.length > 0) {
+        throw new Error("Email already Exist");
+      }
+      return true;
     }),
     body("role")
       .notEmpty()
@@ -189,17 +213,8 @@ const updateUserValidator = () => {
   ];
 };
 
-const deleteUserValidator = () => {
-  return [
-    param("id")
-      .isInt({ min: 1 })
-      .withMessage("User ID must be a positive integer"),
-  ];
-};
-
 module.exports = {
   createUserValidator,
   updateUserValidator,
-  deleteUserValidator,
   getAllUserValidation,
 };
