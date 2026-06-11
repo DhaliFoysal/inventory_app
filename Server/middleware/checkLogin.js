@@ -2,11 +2,10 @@ const jwt = require("jsonwebtoken");
 const prisma = require("../db/prisma");
 
 const checkLogin = async (req, res, next) => {
-  
   const { authorization } = req.headers;
 
   try {
-    const privateKey = process.env.JWT_TOKEN;
+    const privateKey = process.env.JWT_PRIVATEKEY;
 
     if (!authorization) {
       return res

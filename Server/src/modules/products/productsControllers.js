@@ -117,6 +117,7 @@ const postProduct = async (req, res, next) => {
       ids: warehouseIdArray,
       companyId,
     });
+
     if (existWarehouse.length <= 0 || stock.length !== existWarehouse.length) {
       return res.status(404).json({
         code: 404,
@@ -124,7 +125,6 @@ const postProduct = async (req, res, next) => {
         message: "Warehouse Not found!",
       });
     }
-
     let serialIds = [];
     stock.forEach((element) => {
       serialIds = [...serialIds, ...element.itemSerials];
@@ -166,7 +166,7 @@ const postProduct = async (req, res, next) => {
       });
     }
 
-    delete newProduct.buyingTaxId, newProduct.sellingTaxId;
+    (delete newProduct.buyingTaxId, newProduct.sellingTaxId);
 
     const response = {
       code: 201,
@@ -255,7 +255,7 @@ const getAllProduct = async (req, res, next) => {
       return {
         totalStocks: product.Inventories.reduce(
           (acc, item) => acc + item.quantity,
-          0
+          0,
         ),
         ...product,
       };
@@ -267,7 +267,6 @@ const getAllProduct = async (req, res, next) => {
       data: products,
     });
   } catch (error) {
-    console.log(error);
     next(error);
   }
 };

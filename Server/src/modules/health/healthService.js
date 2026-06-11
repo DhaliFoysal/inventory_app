@@ -1,5 +1,5 @@
 const data = {
-  message: "Server Health is Live!",
+  message: "Server Health is ok!",
 };
 
 const getData = () => {

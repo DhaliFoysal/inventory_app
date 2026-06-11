@@ -21,7 +21,6 @@ const signIn = async (req, res, next) => {
         .status(400)
         .json({ code: 400, error: "Bad Request", data: error });
     }
-
     const user = await checkUser({ userName, password });
 
     if (user === null) {
@@ -69,10 +68,10 @@ const signIn = async (req, res, next) => {
     // find company
     const company = await findCompanyByUserIdAndCompanyId(
       user.id,
-      user.companyId
+      user.companyId,
     );
 
-    const privateKey = process.env.JWT_TOKEN;
+    const privateKey = process.env.JWT_PRIVATEKEY;
     const payload = {
       id: user.id,
       name: user.name,
@@ -138,7 +137,6 @@ const signUp = async (req, res, next) => {
     }
     const saltRounds = parseInt(process.env.BCRYPT_SALTROUNDS);
     userData.password = await bcrypt.hash(req.body.password, saltRounds);
-
     // Create User
     const user = await createUser(userData, companyData);
 
@@ -158,7 +156,7 @@ const signUp = async (req, res, next) => {
       });
     }
 
-    const privateKey = process.env.JWT_TOKEN;
+    const privateKey = process.env.JWT_PRIVATEKEY;
     const token = await jwt.sign(user, privateKey);
     const response = {
       code: 201,

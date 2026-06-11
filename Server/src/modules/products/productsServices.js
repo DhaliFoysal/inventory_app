@@ -34,8 +34,8 @@ const fetchAllProducts = async ({ query, companyId, role, offset }) => {
           select: {
             id: true,
             quantity: true,
-            wareHouseId: true,
-            wareHouseName: true,
+            warehouseId: true,
+            warehouseName: true,
           },
         },
       },
@@ -54,8 +54,8 @@ const fetchAllProducts = async ({ query, companyId, role, offset }) => {
           select: {
             id: true,
             quantity: true,
-            wareHouseId: true,
-            wareHouseName: true,
+            warehouseId: true,
+            warehouseName: true,
           },
         },
       },
