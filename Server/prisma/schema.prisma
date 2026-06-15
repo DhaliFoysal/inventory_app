@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -54,6 +54,7 @@ model Company {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   Customers        Customers[]
+  Account          Accounts[]
   ProductsCategory ProductsCategory[]
 }
 
@@ -91,9 +92,10 @@ model Measurement_Unit {
 }
 
 model Tax {
-  id        String   @id @default(cuid())
-  percent   String
-  title     String
+  id      String @id @default(cuid())
+  percent String
+  title   String
+
   companyId String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -171,7 +173,20 @@ model Warehouse {
   name        String
   address     String
   companyId   String
-  createdAt   DateTime      @default(now())
+  createdAt   DateTime      @default(now()) 
   updatedAt   DateTime      @updatedAt
   Inventories Inventories[]
+}
+
+model Accounts { 
+  id            String   @id @default(uuid())
+  accountNumber String   @unique
+  name          String
+  type          String
+  balance       Float
+  link          String
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

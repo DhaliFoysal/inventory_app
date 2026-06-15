@@ -8,7 +8,7 @@ const categoryRouter = require("../src/modules/categories/categoriesRoutes");
 const taxRouters = require("../src/modules/tax/taxRoutes");
 const customerRouters = require("../src/modules/customers/customersRoutes");
 const measurementUnitRouters = require("../src/modules/measurementUnits/measurementUniteRoutes");
-// const paymentsRoute = require("../src/modules/payments/paymentsRouters");
+const salesRouter = require("../src/modules/sales/salesRouters");
 const warehouseRouter = require("../src/modules/warehouse/warehouseRouter");
 
 router.use("/api/v1/health", healthRoutes);
@@ -20,6 +20,6 @@ router.use("/api/v1/tax", taxRouters);
 router.use("/api/v1/measurementunit", measurementUnitRouters);
 router.use("/api/v1/customers", customerRouters);
 router.use("/api/v1/warehouse", warehouseRouter);
-// router.use("/api/v1", paymentsRoute);
+router.use("/api/v1/sales", salesRouter);
 
 module.exports = router;
