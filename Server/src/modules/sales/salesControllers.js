@@ -88,7 +88,6 @@ const postSale = async (req, res, next) => {
         data: errorInventories,
       });
     }
-    
 
     //check payment method available or not
     const paymentMethodAcc = data.payments?.map((item) => item.account);
@@ -131,10 +130,35 @@ const postSale = async (req, res, next) => {
 
     // All validation passed and data is ready to create sale, you can proceed with creating the sale record in the database here.
 
+    const productMap = new Map(
+      isProduct.map((item) => [item.id, item.sellingPrice]),
+    );
+    const subTotal = data.products.reduce((total, product) => {
+      const sellingPrice = productMap.get(product.productId);
+      return total + parseInt(product.quantity) * sellingPrice;
+    }, 0);
+
+ 
+  
+   
+    const taxableAmount = subTotal - parseFloat(discountAmount || 0);
+
+  console.log(taxableAmount);
+  
+
+    // // ৩. ট্যাক্স বের করা (যেমন: ৫% ট্যাক্স হলে)
+    // const tax = taxableAmount * (parseFloat(taxRate || 0) / 100);
+
+    // // ৪. ফাইনাল টোটাল অ্যামাউন্ট
+    // const totalAmount = taxableAmount + tax;
+
+    // // ৫. ডিউ বা বাকি টাকা হিসাব
+    // const dueAmount = totalAmount - parseFloat(paymentAmount || 0);
+
     return res.status(200).json({
       code: 200,
       message: "Success",
-      data: isPaymentMethod,
+      data: isProduct,
     });
   } catch (error) {
     next(error);

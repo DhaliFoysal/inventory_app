@@ -24,6 +24,11 @@ enum CreateBy {
   phone
 }
 
+enum Sold {
+  sold
+  unsold
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String
@@ -59,17 +64,19 @@ model Company {
 }
 
 model Customers {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   name      String
-  phone     String   @unique
-  email     String?  @unique
+  phone     String     @unique
+  email     String?    @unique
   address   String
-  isTrader  Boolean  @default(false)
+  isTrader  Boolean    @default(false)
   balance   Int?
   companyId String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payments  Payments[]
+  sales     Sales[]
 }
 
 model ProductsCategory {
@@ -119,11 +126,11 @@ model Products {
   measurementUnitId String
   measurementUnit   String
   img               String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
   Category_Details  Category_Details[]
   Inventories       Inventories[]
   Serial_numbers    Serial_numbers[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 model Category_Details {
@@ -131,10 +138,9 @@ model Category_Details {
   productId  String
   categoryId String
   name       String?
+  product    Products @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
-  product Products @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model Inventories {
@@ -144,15 +150,10 @@ model Inventories {
   warehouseName String
   warehouseId   String
   companyId     String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
   warehouse     Warehouse @relation(fields: [warehouseId], references: [id])
   product       Products  @relation(fields: [productId], references: [id], onDelete: Cascade)
-}
-
-enum Sold {
-  sold
-  unsold
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Serial_numbers {
@@ -163,9 +164,9 @@ model Serial_numbers {
   productId      String?
   warehouseId    String
   salesDetailsId String?
+  Products       Products? @relation(fields: [productId], references: [id])
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-  Products       Products? @relation(fields: [productId], references: [id])
 }
 
 model Warehouse {
@@ -173,20 +174,49 @@ model Warehouse {
   name        String
   address     String
   companyId   String
-  createdAt   DateTime      @default(now()) 
-  updatedAt   DateTime      @updatedAt
   Inventories Inventories[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
-model Accounts { 
-  id            String   @id @default(uuid())
-  accountNumber String   @unique
+model Accounts {
+  id            String     @id @default(uuid())
+  accountNumber String     @unique
   name          String
   type          String
   balance       Float
   link          String
   companyId     String
-  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payments      Payments[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Payments {
+  id         String     @id @default(uuid())
+  customerId String
+  salesId    String
+  amount     Float
+  method     String
+  status     String
+  companyId  String
+  sales      Sales      @relation(fields: [salesId], references: [id])
+  customer   Customers  @relation(fields: [customerId], references: [id])
+  accounts   Accounts[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Sales {
+  id              String     @id @default(uuid())
+  invoiceNo       String     @unique
+  customerId      String
+  totalAmount     Int
+  dueAmount       Int
+  salesPersonName String
+  customer        Customers  @relation(fields: [customerId], references: [id])
+  payments        Payments[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 }
