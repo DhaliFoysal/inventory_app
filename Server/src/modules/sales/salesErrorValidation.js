@@ -16,11 +16,6 @@ const postSalesvalidation = () => {
         .optional({ values: "falsy" }) // If 'amount' is not sent, skip validation.
         .isNumeric()
         .withMessage("Discount Percentage must be a number"),
-      body("taxPercentage")
-        .optional({ values: "falsy" }) // If 'amount' is not sent, skip validation.
-        .isNumeric()
-        .withMessage("Tax Percentage must be a number")
-        .toFloat(),
       body("date")
         .optional({ values: "falsy" })
         .isDate()

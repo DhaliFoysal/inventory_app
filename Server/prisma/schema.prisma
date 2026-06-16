@@ -52,8 +52,8 @@ enum Type {
 
 model Company {
   id               String             @id @default(cuid())
-  name             String
   address          String
+  name             String
   type             Type               @default(electronics)
   userId           String
   createdAt        DateTime           @default(now())
@@ -99,19 +99,20 @@ model Measurement_Unit {
 }
 
 model Tax {
-  id      String @id @default(cuid())
-  percent String
-  title   String
-
+  id        String     @id @default(cuid())
+  percent   String
+  title     String
   companyId String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  products  Products[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
 model Products {
   id                String             @id @default(cuid())
   name              String
   barcode           String
+  taxId             String?
   buyingPrice       Float
   sellingPrice      Float
   isWarranty        Boolean            @default(true)
@@ -121,16 +122,17 @@ model Products {
   wholesalePrice    Float?
   companyId         String
   buyingTaxId       String?
-  sellingTaxId      String?
   isSerialItems     Boolean            @default(false)
   measurementUnitId String
   measurementUnit   String
   img               String?
+  tax               Tax?               @relation(fields: [taxId], references: [id])
   Category_Details  Category_Details[]
   Inventories       Inventories[]
-  Serial_numbers    Serial_numbers[]
+  Serial_numbers    SerialNumbers[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  saleItems         SaleItems[]
 }
 
 model Category_Details {
@@ -156,17 +158,19 @@ model Inventories {
   updatedAt     DateTime  @updatedAt
 }
 
-model Serial_numbers {
-  id             String    @id @default(cuid())
-  serialNumber   String
-  status         Sold      @default(unsold)
-  companyId      String    @db.VarChar(50)
-  productId      String?
-  warehouseId    String
-  salesDetailsId String?
-  Products       Products? @relation(fields: [productId], references: [id])
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+model SerialNumbers {
+  id           String     @id @default(cuid())
+  serialNumber String
+  status       Sold       @default(unsold)
+  companyId    String
+  productId    String?
+  warehouseId  String
+  salesId      String?
+  Products     Products?  @relation(fields: [productId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  saleItems    SaleItems? @relation(fields: [saleItemsId], references: [id])
+  saleItemsId  String?
 }
 
 model Warehouse {
@@ -194,29 +198,51 @@ model Accounts {
 }
 
 model Payments {
-  id         String     @id @default(uuid())
-  customerId String
-  salesId    String
-  amount     Float
-  method     String
-  status     String
-  companyId  String
-  sales      Sales      @relation(fields: [salesId], references: [id])
-  customer   Customers  @relation(fields: [customerId], references: [id])
-  accounts   Accounts[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id          String     @id @default(uuid())
+  paymentSlip String
+  customerId  String
+  salesId     String
+  amount      Float
+  method      String
+  status      String
+  companyId   String
+  sales       Sales      @relation(fields: [salesId], references: [id])
+  customer    Customers  @relation(fields: [customerId], references: [id])
+  accounts    Accounts[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model Sales {
-  id              String     @id @default(uuid())
-  invoiceNo       String     @unique
+  id              String      @id @default(uuid())
+  invoiceNo       String      @unique
   customerId      String
-  totalAmount     Int
-  dueAmount       Int
+  subTotal        Float
+  totalAmount     Float
+  dueAmount       Float
   salesPersonName String
-  customer        Customers  @relation(fields: [customerId], references: [id])
+  discount        Float       @default(0)
+  discountPercent Float       @default(0)
   payments        Payments[]
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  saleItems       SaleItems[]
+  customer        Customers   @relation(fields: [customerId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model SaleItems {
+  id           String          @id @default(uuid())
+  productName  String
+  salesId      String
+  productId    String
+  quantity     Float
+  unitPrice    Float
+  taxPercent   Float           @default(0)
+  taxAmount    Float           @default(0)
+  totalPrice   Float
+  serialNumber SerialNumbers[]
+  sales        Sales           @relation(fields: [salesId], references: [id])
+  product      Products        @relation(fields: [productId], references: [id])
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 }

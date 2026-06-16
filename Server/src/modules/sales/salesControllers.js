@@ -1,5 +1,6 @@
 const { validationResult } = require("express-validator");
 const errorFormatter = require("../../utils/errorFormatter");
+const generateInvoiceNo = require("../../utils/generateInvoiceNo");
 const {
   getSingleCustomerById,
   getAllProductsById,
@@ -23,7 +24,11 @@ const {
 
 const postSale = async (req, res, next) => {
   const data = req.body;
-  const { companyId, role } = req;
+  const { companyId, role, name } = req;
+
+  const { customerId, discountAmount, discountPercentage, paidAmount, date } =
+    data;
+
   try {
     // Error Validation
     const result = validationResult(req);
@@ -36,7 +41,7 @@ const postSale = async (req, res, next) => {
     }
     // Check Customer Available or Not
     const isCustomer = await getSingleCustomerById({
-      id: data.customerId,
+      id: customerId,
       companyId,
     });
     if (!isCustomer) {
@@ -47,20 +52,37 @@ const postSale = async (req, res, next) => {
       });
     }
 
-    // Check Products Available or Not
+    // Check Products Available or Not and also check products is active or not
     const productIds = data.products?.map((item) => item.productId);
 
     const isProduct = await getAllProductsById(companyId, productIds);
     const serVerProductIds = isProduct?.map((item) => item.id);
 
-    const notFoundProducts = data.products?.filter((product) => {
-      return !serVerProductIds.includes(product.productId);
+    const notFoundProducts = [];
+    const notActiveProductsMap = new Map(
+      isProduct?.map((item) => [item.id, item.isActive]),
+    );
+
+    data.products?.forEach((product) => {
+      if (!serVerProductIds.includes(product.productId)) {
+        notFoundProducts.push({
+          productId: product.productId,
+          message: "Product Not Available.",
+        });
+      }
+      if (notActiveProductsMap.get(product.productId) === false) {
+        notFoundProducts.push({
+          productId: product.productId,
+          message: "Product is Inactive",
+        });
+      }
     });
 
     if (notFoundProducts.length > 0) {
-      return res.status(404).json({
-        code: 404,
-        error: "Product Not Found",
+      return res.status(400).json({
+        code: 400,
+        error: "Bad Request",
+
         data: notFoundProducts,
       });
     }
@@ -130,35 +152,95 @@ const postSale = async (req, res, next) => {
 
     // All validation passed and data is ready to create sale, you can proceed with creating the sale record in the database here.
 
+    // SubTotal Calculate
     const productMap = new Map(
-      isProduct.map((item) => [item.id, item.sellingPrice]),
+      isProduct.map((item) => [
+        item.id,
+        {
+          sellingPrice: item.sellingPrice,
+          taxRate: item.tax ? item.tax.percent : 0,
+        },
+      ]),
     );
-    const subTotal = data.products.reduce((total, product) => {
-      const sellingPrice = productMap.get(product.productId);
-      return total + parseInt(product.quantity) * sellingPrice;
+
+    let subTotal = 0;
+    data.products.forEach((product) => {
+      const { sellingPrice, taxRate } = productMap.get(product.productId);
+      let productTotal = parseInt(product.quantity) * sellingPrice;
+      subTotal += productTotal;
     }, 0);
 
- 
-  
-   
-    const taxableAmount = subTotal - parseFloat(discountAmount || 0);
+    let calculatedTaxTotal = 0;
+    data.products.forEach((product) => {
+      const { sellingPrice, taxRate } = productMap.get(product.productId);
+      let productTotal = parseInt(product.quantity) * sellingPrice;
+      const itemDiscount = (productTotal / subTotal) * discountAmount;
 
-  console.log(taxableAmount);
-  
+      const discountedPrice = productTotal - itemDiscount;
 
-    // // ৩. ট্যাক্স বের করা (যেমন: ৫% ট্যাক্স হলে)
-    // const tax = taxableAmount * (parseFloat(taxRate || 0) / 100);
+      const itemTaxAmount = (discountedPrice * taxRate) / 100;
+      const itemFinalTotal = discountedPrice + itemTaxAmount;
 
-    // // ৪. ফাইনাল টোটাল অ্যামাউন্ট
-    // const totalAmount = taxableAmount + tax;
+      calculatedTaxTotal += itemTaxAmount;
+    });
 
-    // // ৫. ডিউ বা বাকি টাকা হিসাব
-    // const dueAmount = totalAmount - parseFloat(paymentAmount || 0);
+    // generate invoice number
+    const invoiceNo = await generateInvoiceNo({
+      table: "sales",
+      field: "invoiceNo",
+      symbol: "S",
+      start: 100,
+    });
+    const paymentSlip = await generateInvoiceNo({
+      table: "Payments",
+      field: "paymentSlip",
+      symbol: "REC",
+      start: 100,
+    });
+
+    const modifiedProducts = isProduct.map((product) => {
+      const newData = {};
+      data.products.forEach((item) => {
+        if (item.productId === product.id) {
+          newData.quantity = item.quantity;
+          //total price calculate with tax
+          newData.subTotal = parseInt(item.quantity) * product.sellingPrice;
+          newData.totalPriceWithTax = newData.subTotal;
+          newData.taxAmount = 0;
+          if (product.tax.percent > 0) {
+            const taxAmount =
+              newData.totalPriceWithTax * (product.tax.percent / 100);
+            newData.totalPriceWithTax += taxAmount;
+            newData.taxAmount = taxAmount;
+          }
+        }
+      });
+      return { ...product, ...newData };
+    });
+
+    const createData = {
+      invoiceNo,
+      customerId,
+      paidAmount: parseFloat(paidAmount) || 0,
+      paymentSlip,
+      subTotal,
+      totalAmount: subTotal,
+      dueAmount:
+        subTotal -
+        (parseFloat(paidAmount) || 0) -
+        (parseFloat(discountAmount) || 0),
+      totalTaxAmount: Number(calculatedTaxTotal.toFixed(2)),
+      salesPersonName: name,
+      discountAmount: parseFloat(discountAmount) || 0,
+      discountPercentage: parseFloat(discountPercentage) || 0,
+      date: date ? new Date(date) : new Date(),
+      products: modifiedProducts,
+    };
 
     return res.status(200).json({
       code: 200,
       message: "Success",
-      data: isProduct,
+      data: createData,
     });
   } catch (error) {
     next(error);

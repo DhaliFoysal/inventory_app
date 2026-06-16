@@ -17,6 +17,9 @@ const getAllProductsById = (companyId, productIds) => {
       id: { in: productIds },
       companyId,
     },
+   include: {
+      tax: true,
+    },
   });
   return products;
 };
